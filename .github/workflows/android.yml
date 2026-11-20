@@ -20,7 +20,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Install Android SDK packages
+        run: |
+          "${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
       - run: ./gradlew --no-daemon --no-build-cache :core:test :app:assembleDebug :app:assembleDebugAndroidTest :fixture:assembleDebug
       - run: ./gradlew --no-daemon --no-build-cache :app:lintDebug
 
@@ -38,7 +40,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Install Android SDK packages
+        run: |
+          "${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
       - run: ./gradlew --no-daemon --no-build-cache :app:assembleRelease
       - name: Check the tag and sign the APK
         env:
