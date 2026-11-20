@@ -1,0 +1,13 @@
+ARG SDK_IMAGE
+FROM ${SDK_IMAGE}
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libx11-6 libxcb1 libxdamage1 libxext6 libxfixes3 libxrender1 \
+        libnss3 libpulse0 libgl1 libglu1-mesa libdrm2 libgbm1 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/opt/android-sdk/emulator:${PATH}"
+ENV ANDROID_AVD_HOME=/avd
+RUN sdkmanager --install "emulator" "system-images;android-34;google_apis;x86_64" \
+    && echo no | avdmanager create avd -n pushmenot -k "system-images;android-34;google_apis;x86_64" -d pixel_6
