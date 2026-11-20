@@ -283,4 +283,8 @@
     <string name="update_confirm">The update is ready. Android requires installation confirmation.</string>
     <string name="confirm_update_android">Confirm in Android</string>
     <string name="update_install_failed">Could not install the update. Try again or open the release on GitHub.</string>
+    <string name="show_notification_details">Notification details</string>
+    <string name="hide_notification_details">Hide notification details</string>
+    <string name="android_channel_name">Android channel name</string>
+    <string name="android_channel_name_unavailable">Channel name unavailable</string>
 </resources>

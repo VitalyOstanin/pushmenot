@@ -109,7 +109,7 @@ class PushMeNotListenerService : NotificationListenerService() {
         super.onListenerDisconnected()
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+    override fun onNotificationPosted(sbn: StatusBarNotification?, rankingMap: RankingMap?) {
         if (!connected || sbn == null || sbn.user != Process.myUserHandle()) return
         if (sbn.packageName == packageName && sbn.id == HistoryShortcut.ID &&
             sbn.notification.channelId == HistoryShortcut.CHANNEL
@@ -123,7 +123,9 @@ class PushMeNotListenerService : NotificationListenerService() {
             return
         }
 
-        val snapshot = reader.read(sbn, readContent = source?.enabled == true || settings.retainContent)
+        val snapshot = reader.read(
+            sbn, readContent = source?.enabled == true || settings.retainContent, rankingMap = rankingMap,
+        )
         val archive = if (settings.retainContent) readArchive(sbn.notification, snapshot, reader) else null
         val fingerprint = reader.fingerprint(snapshot)
         val previous = active[sbn.key]
@@ -193,13 +195,14 @@ class PushMeNotListenerService : NotificationListenerService() {
         } catch (_: RuntimeException) {
             null
         } ?: return null
+        val rankingMap = currentRanking
         return cards.asSequence()
             .filter { it.user == Process.myUserHandle() && it.packageName != packageName }
             .take(MAX_ACTIVE)
             .map { card ->
-                val snapshot = reader.read(card)
+                val snapshot = reader.read(card, rankingMap = rankingMap)
                 val channel = snapshot.channelId?.takeIf { it.isNotBlank() && it == it.trim() }
-                ShadeCard(snapshot.packageName, channel, snapshot.title, snapshot.body, snapshot.protection)
+                ShadeCard(snapshot.packageName, channel, snapshot.title, snapshot.body, snapshot.protection, snapshot.channelName)
             }
             .toList()
     }
@@ -314,12 +317,13 @@ class PushMeNotListenerService : NotificationListenerService() {
         val rules = RuleJson.decode(ruleSet.rulesJson).filter { it.frequency == null }
         if (rules.none { it.enabled && it.action == Action.HIDE }) return
         val visible = activeNotifications ?: return
+        val rankingMap = currentRanking
         for (card in visible) {
             if (epoch != reviewingEpoch || observedRulesVersion != version || !connected) return
             val slot = active[card.key]?.takeIf { card.postTime == it.postTime } ?: continue
             val source = sources?.get(card.packageName)?.takeIf { it.enabled } ?: continue
             val settings = retention ?: return
-            val snapshot = reader.read(card)
+            val snapshot = reader.read(card, rankingMap = rankingMap)
             if (!snapshot.contentAvailable || snapshot.protection != null) continue
             val event = Posted(
                 epoch = reviewingEpoch,
@@ -426,6 +430,7 @@ class PushMeNotListenerService : NotificationListenerService() {
                 profileId = card.profileId,
                 packageName = card.packageName,
                 channelId = card.channelId,
+                channelName = card.channelName,
                 lifecycleId = event.slot.lifecycleId,
                 generation = event.slot.generation,
                 revision = event.slot.revision + if (review) 1 else 0,

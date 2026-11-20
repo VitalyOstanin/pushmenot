@@ -14,6 +14,7 @@ data class ShadeCard internal constructor(
     val title: String?,
     val body: String?,
     val protection: Protection?,
+    val channelName: String? = null,
 ) {
     private val exactTitle = title?.takeIf(::canUseAsCondition)
     private val exactBody = body?.takeIf(::canUseAsCondition)

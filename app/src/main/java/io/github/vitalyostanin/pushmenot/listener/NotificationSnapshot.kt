@@ -5,7 +5,10 @@ import android.app.Notification
 import android.content.res.Resources
 import android.os.Build
 import android.os.Parcelable
+import android.service.notification.NotificationListenerService.Ranking
+import android.service.notification.NotificationListenerService.RankingMap
 import android.service.notification.StatusBarNotification
+import android.util.Patterns
 import com.pushmenot.core.Protection
 import java.nio.ByteBuffer
 import java.security.SecureRandom
@@ -22,12 +25,17 @@ internal data class NotificationSnapshot(
     val senderIdentity: String? = null,
     val protection: Protection? = null,
     val contentAvailable: Boolean = false,
+    val channelName: String? = null,
 )
 
 internal class NotificationReader(private val resources: Resources) {
     private val macKey = SecretKeySpec(SecureRandom().generateSeed(32), "HmacSHA256")
 
-    fun read(card: StatusBarNotification, readContent: Boolean = true): NotificationSnapshot {
+    fun read(
+        card: StatusBarNotification,
+        readContent: Boolean = true,
+        rankingMap: RankingMap? = null,
+    ): NotificationSnapshot {
         val notification = card.notification
         val protection = when {
             card.packageName in emergencyPackages || notification.category == "emergency" ->
@@ -42,6 +50,7 @@ internal class NotificationReader(private val resources: Resources) {
             packageName = card.packageName,
             channelId = notification.channelId?.takeIf { it.length <= MAX_ID_LENGTH },
             protection = protection,
+            channelName = readableChannelName(card, rankingMap),
         )
         if (!readContent || protection != null || notification.visibility == Notification.VISIBILITY_SECRET) {
             return metadata
@@ -51,6 +60,17 @@ internal class NotificationReader(private val resources: Resources) {
             content(notification, metadata)
         } catch (_: RuntimeException) {
             metadata
+        }
+    }
+
+    private fun readableChannelName(card: StatusBarNotification, rankingMap: RankingMap?): String? {
+        val id = card.notification.channelId ?: return null
+        val ranking = Ranking()
+        if (rankingMap?.getRanking(card.key, ranking) != true) return null
+        val channel = ranking.channel?.takeIf { it.id == id } ?: return null
+        return channel.name?.toString()?.trim()?.takeIf {
+            it.isNotEmpty() && it != id.trim() &&
+                !Patterns.EMAIL_ADDRESS.matcher(it).find()
         }
     }
 

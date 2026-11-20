@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -32,13 +33,21 @@ class JournalAppHeaderTest {
         val title = "Synthetic journal title"
         val body = "Synthetic notification without a title"
         val unavailablePackage = "example.uninstalled"
+        val channelId = "^nc_1_mail_demo@example.invalid"
+        val legacyChannelId = "legacy-mail"
         try {
             val (installedId, unavailableId) = runBlocking {
                 storage.setContentRetention(true)
                 val revision = storage.contentRevision()
                 val now = System.currentTimeMillis()
-                val installed = storage.appendNotification(JournalItem(now, packageName = context.packageName, title = title), revision)
-                val unavailable = storage.appendNotification(JournalItem(now - 1, packageName = unavailablePackage, body = body), revision)
+                val installed = storage.appendNotification(
+                    JournalItem(now, packageName = context.packageName, title = title, channelId = channelId, channelName = "Orders"),
+                    revision,
+                )
+                val unavailable = storage.appendNotification(
+                    JournalItem(now - 1, packageName = unavailablePackage, body = body, channelId = legacyChannelId),
+                    revision,
+                )
                 installed to unavailable
             }
             val launch = Intent.makeRestartActivityTask(ComponentName(context, MainActivity::class.java))
@@ -57,7 +66,14 @@ class JournalAppHeaderTest {
                     .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
                 val titleBounds = compose.onNode(installed and hasText(title), useUnmergedTree = true)
                     .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-                assertTrue(nameBounds.bottom <= titleBounds.top)
+                val channelBounds = compose.onNode(installed and hasText(context.getString(R.string.channel_detail, "Orders")))
+                    .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                assertTrue(nameBounds.bottom <= channelBounds.top && channelBounds.bottom <= titleBounds.top)
+                compose.onNode(installed and hasText(channelId)).assertDoesNotExist()
+                compose.onNode(installed and hasText(context.getString(R.string.show_notification_details))).performClick()
+                compose.onNode(installed and hasText(channelId)).assertExists()
+                compose.onNode(installed and hasText(context.getString(R.string.hide_notification_details))).performClick()
+                compose.onNode(installed and hasText(channelId)).assertDoesNotExist()
 
                 history.performScrollToNode(unavailableCard)
                 val unavailable = hasAnyAncestor(unavailableCard)
@@ -68,6 +84,9 @@ class JournalAppHeaderTest {
                 val bodyBounds = compose.onNode(unavailable and hasText(body), useUnmergedTree = true)
                     .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
                 assertTrue(packageBounds.bottom <= bodyBounds.top)
+                compose.onNode(unavailable and hasText(legacyChannelId, substring = true)).assertDoesNotExist()
+                compose.onNode(unavailable and hasText(context.getString(R.string.show_notification_details))).performClick()
+                compose.onNode(unavailable and hasText(legacyChannelId)).assertExists()
             }
         } finally {
             runBlocking { storage.setContentRetention(originalRetention) }

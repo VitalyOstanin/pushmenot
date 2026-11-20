@@ -283,4 +283,8 @@
     <string name="update_confirm">Обновление готово. Android просит подтвердить установку.</string>
     <string name="confirm_update_android">Подтвердить в Android</string>
     <string name="update_install_failed">Не удалось установить обновление. Можно повторить попытку или открыть выпуск на GitHub.</string>
+    <string name="show_notification_details">Детали уведомления</string>
+    <string name="hide_notification_details">Свернуть детали уведомления</string>
+    <string name="android_channel_name">Название канала в Android</string>
+    <string name="android_channel_name_unavailable">Название канала недоступно</string>
 </resources>

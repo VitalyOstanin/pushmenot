@@ -23,7 +23,7 @@ import java.util.UUID
         NotificationCount::class,
         StatisticsStart::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class PushDatabase : RoomDatabase() {
@@ -111,6 +111,12 @@ abstract class PushDatabase : RoomDatabase() {
             }
         }
 
+        private val addChannelName = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE journal ADD COLUMN channelName TEXT")
+            }
+        }
+
         @Volatile
         private var instance: PushDatabase? = null
 
@@ -119,7 +125,9 @@ abstract class PushDatabase : RoomDatabase() {
                 context.applicationContext,
                 PushDatabase::class.java,
                 "pushmenot.db",
-            ).addMigrations(addRuleScope, addJournalSettings, addGlobalRetention, addHistoryAndStatistics, addJournalState).build().also { instance = it }
+            ).addMigrations(
+                addRuleScope, addJournalSettings, addGlobalRetention, addHistoryAndStatistics, addJournalState, addChannelName,
+            ).build().also { instance = it }
         }
     }
 }

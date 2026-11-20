@@ -87,7 +87,8 @@ class NotificationFlowTest {
             await("unfiltered card stays active and is recorded with text by default") {
                 val entry = storage.historyPage(HistoryQuery(packageName = publisher)).singleOrNull()
                 entry != null && entry.verdict == null && entry.contentRetained &&
-                    entry.title == "Discount with filtering off" && entry.dismissalRequestedAtMillis == null && 99 in activeFixtureIds()
+                    entry.title == "Discount with filtering off" && entry.channelId == "orders" &&
+                    entry.channelName == "Orders" && entry.dismissalRequestedAtMillis == null && 99 in activeFixtureIds()
             }
             fixture("RESET")
             storage.clearHistory()
@@ -397,6 +398,9 @@ class NotificationFlowTest {
             clickUi("global_rules")
             awaitVisible("Global rules")
 
+            // Active cards reappear above the app selector when the journal filters are reset.
+            fixture("RESET")
+            await("fixture shade cleared") { activeFixtureIds().isEmpty() }
             val second = storage.setSource("example.second", true)
             storage.appendNotification(
                 JournalItem(System.currentTimeMillis(), packageName = second.packageName, title = "Second source"),

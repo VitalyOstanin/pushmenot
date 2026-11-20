@@ -187,7 +187,7 @@ private fun LazyListScope.shadeCards(
     items(cards) { card ->
         Panel {
             JournalAppHeader(journalApps, card.packageName, labels[card.packageName])
-            card.channelId?.let { Help(stringResource(R.string.channel_detail, it)) }
+            JournalChannelName(card.channelName)
             JournalNotificationTitle(card.title)
             card.body?.takeIf(String::isNotBlank)?.let { Text(it, maxLines = 3) }
             when {
@@ -210,6 +210,7 @@ private fun LazyListScope.shadeCards(
                 card.protection != null -> Help(stringResource(R.string.protected_entry))
                 else -> Help(stringResource(R.string.shade_no_rule_for_card))
             }
+            JournalChannelDetails(card.channelName, card.channelId)
         }
     }
 }
@@ -303,6 +304,26 @@ private fun AppCheckRow(label: String, checked: Boolean, change: (Boolean) -> Un
 }
 
 @Composable
+private fun JournalChannelName(name: String?) {
+    name?.let { Help(stringResource(R.string.channel_detail, it)) }
+}
+
+@Composable
+private fun JournalChannelDetails(name: String?, id: String?) {
+    if (id.isNullOrBlank()) return
+    var expanded by rememberSaveable(id) { mutableStateOf(false) }
+    TextButton(onClick = { expanded = !expanded }) {
+        Text(stringResource(if (expanded) R.string.hide_notification_details else R.string.show_notification_details))
+    }
+    if (expanded) {
+        Help(stringResource(R.string.android_channel_name))
+        Text(name ?: stringResource(R.string.android_channel_name_unavailable))
+        Help(stringResource(R.string.channel_field))
+        Text(id)
+    }
+}
+
+@Composable
 private fun HistoryRecord(
     entry: JournalItem,
     journalApps: JournalApps,
@@ -330,7 +351,7 @@ private fun HistoryRecord(
             time = time,
             openSource = packageName?.let { { openSource(it) } },
         )
-        entry.channelId?.let { Help(stringResource(R.string.channel_detail, it)) }
+        JournalChannelName(entry.channelName)
         JournalNotificationTitle(entry.title)
         listOfNotNull(entry.body, entry.archivedText).takeIf { it.isNotEmpty() }?.let {
             Text(it.joinToString("\n"))
@@ -384,6 +405,7 @@ private fun HistoryRecord(
         if (entry.packageName != null) {
             ActionButton(R.string.create_from_entry, { createRule(entry) }, primary = false, tag = "entry_new_rule")
         }
+        JournalChannelDetails(entry.channelName, entry.channelId)
     }
 }
 

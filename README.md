@@ -39,6 +39,8 @@ Android delivers notifications to the listener after posting them. A banner, sou
 ## Notification history
 
 Each card starts with the sending app’s name and icon when they are available.
+A readable Android channel name appears below the app name when available.
+Open **Notification details** to see the exact channel ID used by rules.
 
 Use Settings to manage history size, content saving, notification access, background
 settings, app language, and which apps are filtered. The journal records notifications

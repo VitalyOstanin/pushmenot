@@ -56,6 +56,7 @@ data class JournalItem(
     val senderSearch: String? = null,
     val archivedText: String? = null,
     @ColumnInfo(defaultValue = "0") val changedRevision: Long = 0,
+    val channelName: String? = null,
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
 ) {
     companion object {
