@@ -15,6 +15,9 @@ internal interface PushDao {
     @Query("SELECT * FROM sources ORDER BY packageName")
     fun observeSources(): Flow<List<SourceSettings>>
 
+    @Query("SELECT packageName FROM sources WHERE enabled = 1 ORDER BY packageName")
+    suspend fun enabledPackages(): List<String>
+
     @Upsert
     suspend fun saveSource(source: SourceSettings)
 
@@ -101,6 +104,13 @@ internal interface PushDao {
         search: String?,
         limit: Int,
     ): List<JournalItem>
+
+    @Query("""
+        SELECT COUNT(*) FROM journal
+        WHERE kind = 'notification' AND observedAtMillis BETWEEN :since AND :until
+        AND (:packageName IS NULL OR packageName = :packageName)
+    """)
+    suspend fun countHistoryExport(since: Long, until: Long, packageName: String?): Int
 
     @Query("SELECT DISTINCT packageName FROM journal WHERE packageName IS NOT NULL")
     suspend fun historyPackages(): List<String>

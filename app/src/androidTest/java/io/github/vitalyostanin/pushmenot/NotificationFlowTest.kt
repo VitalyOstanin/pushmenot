@@ -1,12 +1,12 @@
 package io.github.vitalyostanin.pushmenot
 
 import android.app.ActivityManager
-import android.app.LocaleManager
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.LocaleList
+import android.graphics.Rect
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import android.os.SystemClock
@@ -19,6 +19,7 @@ import com.pushmenot.core.FilterRule
 import com.pushmenot.core.TextCondition
 import com.pushmenot.core.TextOperation
 import io.github.vitalyostanin.pushmenot.listener.PushMeNotListenerService
+import io.github.vitalyostanin.pushmenot.rules.ModeScope
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
 import io.github.vitalyostanin.pushmenot.sources.AndroidSources
 import io.github.vitalyostanin.pushmenot.shortcut.HistoryShortcut
@@ -41,7 +42,7 @@ class NotificationFlowTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val storage = PushDatabase.open(context).storage
         val service = "${context.packageName}/.listener.PushMeNotListenerService"
-        shell("pm revoke $publisher android.permission.POST_NOTIFICATIONS")
+        setNotifications(publisher, enabled = false)
         shell("cmd notification allow_listener $service")
         try {
             await("listener connected") { PushMeNotListenerService.isConnected.value }
@@ -56,7 +57,7 @@ class NotificationFlowTest {
             assertTrue("Android rejected the card before the listener", activeFixtureIds().isEmpty())
             assertTrue(storage.historyPage(HistoryQuery(packageName = publisher)).isEmpty())
 
-            shell("pm grant $publisher android.permission.POST_NOTIFICATIONS")
+            setNotifications(publisher, enabled = true)
             val oldRules = storage.rules()
             assertNotNull(
                 storage.replaceRules(
@@ -118,13 +119,13 @@ class NotificationFlowTest {
             }
 
             val ruleVersion = storage.rules().version
-            shell("pm revoke $publisher android.permission.POST_NOTIFICATIONS")
+            setNotifications(publisher, enabled = false)
             assertTrue(storage.source(publisher)?.enabled == true)
             assertTrue(storage.rules().version == ruleVersion)
             assertFalse(activeFixtureIds().contains(102))
         } finally {
             fixture("RESET")
-            shell("pm revoke $publisher android.permission.POST_NOTIFICATIONS")
+            setNotifications(publisher, enabled = false)
             shell("cmd notification disallow_listener $service")
         }
     }
@@ -134,7 +135,7 @@ class NotificationFlowTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val storage = PushDatabase.open(context).storage
         val service = "${context.packageName}/.listener.PushMeNotListenerService"
-        shell("pm grant $publisher android.permission.POST_NOTIFICATIONS")
+        setNotifications(publisher, enabled = true)
         shell("cmd notification allow_listener $service")
         try {
             await("listener connected") { PushMeNotListenerService.isConnected.value }
@@ -175,7 +176,7 @@ class NotificationFlowTest {
         } finally {
             storage.setContentRetention(true)
             fixture("RESET")
-            shell("pm revoke $publisher android.permission.POST_NOTIFICATIONS")
+            setNotifications(publisher, enabled = false)
             shell("cmd notification disallow_listener $service")
         }
     }
@@ -209,22 +210,22 @@ class NotificationFlowTest {
             shell("cmd deviceidle whitelist -$packageName")
             shell("cmd notification allow_listener $service")
             await("listener connected") { PushMeNotListenerService.isConnected.value }
-            val launch = Intent.makeRestartActivityTask(ComponentName(context, MainActivity::class.java))
-            ActivityScenario.launch<MainActivity>(launch).use {
-                clickUi("battery_optimization_settings")
-                clickUi("android_battery_settings")
-                await("Android battery settings") {
-                    instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() == "com.android.settings"
-                }
-                shell("cmd deviceidle whitelist +$packageName")
-                await("battery exemption granted") { power.isIgnoringBatteryOptimizations(packageName) }
-                shell("input keyevent KEYCODE_BACK")
-                clickUi("history_tab")
-                await("journal active without the battery warning") {
-                    val root = instrumentation.uiAutomation.rootInActiveWindow
-                    root?.packageName?.toString() == packageName &&
-                        findNode(root, "history_apps") != null && findNode(root, "battery_optimization_settings") == null
-                }
+            shell("am start -W -f 0x14000000 -n $packageName/.MainActivity")
+            clickUi("history_tab", untilVisible = "history_list")
+            clickUi("battery_optimization_settings")
+            clickUi("android_battery_settings")
+            await("Android battery settings") {
+                instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() == "com.android.settings" &&
+                    shell("dumpsys activity activities").contains("act=android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS")
+            }
+            shell("cmd deviceidle whitelist +$packageName")
+            await("battery exemption granted") { power.isIgnoringBatteryOptimizations(packageName) }
+            shell("am start -W -f 0x14000000 -n $packageName/.MainActivity")
+            clickUi("history_tab", untilVisible = "history_list")
+            await("journal active without the battery warning") {
+                val root = instrumentation.uiAutomation.rootInActiveWindow
+                root?.packageName?.toString() == packageName &&
+                    findNode(root, "history_apps") != null && findNode(root, "battery_optimization_settings") == null
             }
         } finally {
             val sign = if (originallyExempt) "+" else "-"
@@ -251,30 +252,29 @@ class NotificationFlowTest {
             await("listener connected") { PushMeNotListenerService.isConnected.value }
             shell("cmd appops set $packageName $appOp ignore")
             await("background restriction applied") { activityManager.isBackgroundRestricted }
-            val launch = Intent.makeRestartActivityTask(ComponentName(context, MainActivity::class.java))
-            ActivityScenario.launch<MainActivity>(launch).use {
-                clickUi("background_app_settings")
-                clickUi("android_background_settings")
-                try {
-                    await("Android app settings for Push Me Not") {
-                        instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() == "com.android.settings" &&
-                            shell("dumpsys activity activities").contains("act=android.settings.APPLICATION_DETAILS_SETTINGS")
-                    }
-                } catch (failure: AssertionError) {
-                    val activities = shell("dumpsys activity activities").lineSequence().filter {
-                        "topResumedActivity" in it || "android.settings." in it
-                    }.joinToString("\n")
-                    throw AssertionError("App settings activity was not detected:\n$activities", failure)
+            shell("am start -W -f 0x14000000 -n $packageName/.MainActivity")
+            clickUi("history_tab", untilVisible = "history_list")
+            clickUi("background_app_settings")
+            clickUi("android_background_settings")
+            try {
+                await("Android app settings for Push Me Not") {
+                    instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() == "com.android.settings" &&
+                        shell("dumpsys activity activities").contains("act=android.settings.APPLICATION_DETAILS_SETTINGS")
                 }
-                shell("cmd appops set $packageName $appOp allow")
-                await("background restriction removed") { !activityManager.isBackgroundRestricted }
-                shell("input keyevent KEYCODE_BACK")
-                clickUi("history_tab")
-                await("journal active without the background restriction warning") {
-                    val root = instrumentation.uiAutomation.rootInActiveWindow
-                    root?.packageName?.toString() == packageName &&
-                        findNode(root, "history_apps") != null && findNode(root, "background_app_settings") == null
-                }
+            } catch (failure: AssertionError) {
+                val activities = shell("dumpsys activity activities").lineSequence().filter {
+                    "topResumedActivity" in it || "android.settings." in it
+                }.joinToString("\n")
+                throw AssertionError("App settings activity was not detected:\n$activities", failure)
+            }
+            shell("cmd appops set $packageName $appOp allow")
+            await("background restriction removed") { !activityManager.isBackgroundRestricted }
+            shell("am start -W -f 0x14000000 -n $packageName/.MainActivity")
+            clickUi("history_tab", untilVisible = "history_list")
+            await("journal active without the background restriction warning") {
+                val root = instrumentation.uiAutomation.rootInActiveWindow
+                root?.packageName?.toString() == packageName &&
+                    findNode(root, "history_apps") != null && findNode(root, "background_app_settings") == null
             }
         } finally {
             shell("cmd appops set $packageName $appOp $originalMode")
@@ -297,14 +297,14 @@ class NotificationFlowTest {
             shell("cmd notification allow_listener $service")
             await("listener connected") { PushMeNotListenerService.isConnected.value }
             ActivityScenario.launch<MainActivity>(launch).use {
-                clickUi("settings_tab")
+                clickUi("settings_tab", untilVisible = "settings_content")
                 clickUi("journal_capacity")
                 clickUi("journal_capacity_5000")
                 clickUi("journal_capacity_save")
                 await("new capacity saved") { storage.journalCapacity() == 5_000 }
             }
             ActivityScenario.launch<MainActivity>(launch).use {
-                clickUi("settings_tab")
+                clickUi("settings_tab", untilVisible = "settings_content")
                 clickUi("journal_capacity")
                 await("saved capacity selected") {
                     val root = instrumentation.uiAutomation.rootInActiveWindow
@@ -326,14 +326,13 @@ class NotificationFlowTest {
         val context = instrumentation.targetContext
         val storage = PushDatabase.open(context).storage
         val service = "${context.packageName}/.listener.PushMeNotListenerService"
-        val locale = context.getSystemService(LocaleManager::class.java)
-        val previousLocale = locale.applicationLocales
+        val locale = TestAppLocale(context)
         val power = context.getSystemService(PowerManager::class.java)
         val originallyExempt = power.isIgnoringBatteryOptimizations(context.packageName)
         try {
             shell("cmd deviceidle whitelist +${context.packageName}")
-            locale.applicationLocales = LocaleList.forLanguageTags("en")
-            shell("pm revoke $publisher android.permission.POST_NOTIFICATIONS")
+            locale.set("en")
+            setNotifications(publisher, enabled = false)
             shell("cmd notification allow_listener $service")
             await("listener connected") { PushMeNotListenerService.isConnected.value }
             fixture("RESET")
@@ -343,7 +342,7 @@ class NotificationFlowTest {
             val startVersion = storage.rules().version
             assertNotNull(storage.replaceRules(startVersion, RuleJson.encode(emptyList())))
             shell("am start -W -n ${context.packageName}/.MainActivity")
-            clickUi("sources_tab")
+            clickUi("sources_tab", untilVisible = "add_app")
             clickUi("add_app")
             awaitVisible("Rules apply to apps with filtering turned on.")
             clickUi("source_search")
@@ -360,8 +359,12 @@ class NotificationFlowTest {
             }
             clickUi("switch_widget", within = "main_switch_bar")
             await("publisher notification permission granted") {
-                context.packageManager.checkPermission("android.permission.POST_NOTIFICATIONS", publisher) ==
-                    PackageManager.PERMISSION_GRANTED
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.checkPermission("android.permission.POST_NOTIFICATIONS", publisher) ==
+                        PackageManager.PERMISSION_GRANTED
+                } else {
+                    notificationSwitchChecked() == true
+                }
             }
             shell("input keyevent KEYCODE_BACK")
             clickUi("history_tab")
@@ -372,7 +375,7 @@ class NotificationFlowTest {
                     .firstOrNull { it.title == "Discount on delivery" }?.id ?: 0
                 entryId > 0
             }
-            clickUi("entry_new_rule", within = "history_entry_$entryId", scroll = true)
+            clickUi("entry_new_rule", within = "history_entry_$entryId", scroll = true, untilVisible = "rule_save")
             clickUi("rule_save")
             await("rule saved") { RuleJson.decode(storage.rules().rulesJson).size == 1 }
             clickUi("OK")
@@ -408,21 +411,23 @@ class NotificationFlowTest {
             )
             clickUi("history_tab")
             clickUi("history_apps")
+            awaitVisible("Apps in history")
             clickUi("Push Me Not Test Publisher")
             clickUi("example.second")
             clickUi("Apply filters")
             awaitVisible("Push Me Not Test Publisher, example.second")
             clickUi("history_reset")
             awaitVisible("All apps", scrollBackward = true)
-            locale.applicationLocales = LocaleList.forLanguageTags("ru")
-            clickUi("Настройки", within = "settings_tab")
-            awaitVisible("Сохранять содержимое уведомлений")
+            if (locale.set("ru")) {
+                clickUi("Настройки", within = "settings_tab")
+                awaitVisible("Сохранять содержимое уведомлений")
+            }
         } finally {
-            locale.applicationLocales = previousLocale
+            locale.restore()
             val sign = if (originallyExempt) "+" else "-"
             shell("cmd deviceidle whitelist $sign${context.packageName}")
             fixture("RESET")
-            shell("pm revoke $publisher android.permission.POST_NOTIFICATIONS")
+            setNotifications(publisher, enabled = false)
             shell("cmd notification disallow_listener $service")
         }
     }
@@ -491,19 +496,17 @@ class NotificationFlowTest {
         val storage = PushDatabase.open(context).storage
         val pkg = context.packageName
         val service = "$pkg/.listener.PushMeNotListenerService"
-        val permission = "android.permission.POST_NOTIFICATIONS"
         try {
-            shell("pm grant $pkg $permission")
+            setNotifications(pkg, enabled = true)
             shell("cmd notification allow_listener $service")
             await("listener connected") { PushMeNotListenerService.isConnected.value }
             shell("am start -W -n $pkg/.MainActivity")
             await("quiet journal shortcut") {
                 manager.activeNotifications.any { it.id == HistoryShortcut.ID }
             }
-            clickUi("rules_tab")
+            clickUi("rules_tab", untilVisible = "rules_list")
             manager.activeNotifications.single { it.id == HistoryShortcut.ID }.notification.contentIntent.send()
-            awaitVisible("History")
-            clickUi("history_apps")
+            clickHistoryItem("history_apps")
             assertTrue(storage.historyPage(HistoryQuery(packageName = pkg)).isEmpty())
         } finally {
             manager.cancel(HistoryShortcut.ID)
@@ -554,12 +557,11 @@ class NotificationFlowTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val storage = PushDatabase.open(context).storage
         val service = "${context.packageName}/.listener.PushMeNotListenerService"
-        val permission = "android.permission.POST_NOTIFICATIONS"
         val original = storage.rules().rulesJson
         val originalSource = storage.source(publisher)
         val title = "Synthetic promotion from the shade"
         try {
-            shell("pm grant $publisher $permission")
+            setNotifications(publisher, enabled = true)
             shell("cmd notification allow_listener $service")
             await("listener connected") { PushMeNotListenerService.isConnected.value }
             fixture("RESET")
@@ -576,8 +578,8 @@ class NotificationFlowTest {
             ActivityScenario.launch<MainActivity>(launch).use {
                 awaitVisible("In the notification shade")
                 awaitVisible("Push Me Not Test Publisher")
-                clickUi("shade_rule_$publisher", scroll = true)
-                awaitVisible("Turn on filtering and save")
+                clickHistoryItem("shade_rule_$publisher")
+                awaitVisible("rule_save")
                 assertFalse(storage.source(publisher)?.enabled == true)
                 assertTrue(storage.rules().version == startingVersion)
                 post(532, "$title with a different ending")
@@ -600,7 +602,57 @@ class NotificationFlowTest {
             fixture("RESET")
             storage.replaceRules(storage.rules().version, original)
             storage.setSource(publisher, originalSource?.enabled == true)
-            shell("pm revoke $publisher $permission")
+            setNotifications(publisher, enabled = false)
+            shell("cmd notification disallow_listener $service")
+        }
+    }
+
+    @Test
+    fun opensOriginalTargetAfterTheUnmatchedModeDismissesTheCard() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val storage = PushDatabase.open(context).storage
+        val service = "${context.packageName}/.listener.PushMeNotListenerService"
+        val original = storage.rules().rulesJson
+        val originalSource = storage.source(publisher)
+        val history = HistoryQuery(packageName = publisher)
+        try {
+            setNotifications(publisher, enabled = true)
+            shell("cmd notification allow_listener $service")
+            await("listener connected") { PushMeNotListenerService.isConnected.value }
+            fixture("RESET")
+            storage.setSource(publisher, true)
+            storage.setContentRetention(true)
+            storage.clearHistory()
+            val keep = FilterRule("allowed-order", 1, publisher, Action.KEEP, title = TextCondition("Ready order"))
+            assertNotNull(storage.replaceRules(storage.rules().version, RuleJson.encode(
+                listOf(keep), modes = mapOf(ModeScope(publisher, "orders") to Action.HIDE),
+            )))
+            post(541, "Synthetic openable promotion", "target")
+            post(542, "Ready order")
+            await("mode hides the promotion and retains the explicit Keep") {
+                val active = activeFixtureIds()
+                541 !in active && 542 in active && storage.historyPage(history).any {
+                    it.title == "Synthetic openable promotion" && it.decisionReason == "UNMATCHED_MODE" &&
+                        it.removedAtMillis != null
+                }
+            }
+
+            val entry = storage.historyPage(history).single { it.title == "Synthetic openable promotion" }
+            fixture("RESET")
+            await("fixture shade cleared") { activeFixtureIds().isEmpty() }
+            val launch = Intent.makeRestartActivityTask(ComponentName(context, MainActivity::class.java))
+            ActivityScenario.launch<MainActivity>(launch).use {
+                clickUi("notification_details", within = "history_entry_${entry.id}", scroll = true)
+                clickUi("open_notification_target", within = "history_entry_${entry.id}", scroll = true,
+                    untilVisible = "Opened the original notification target")
+                awaitVisible("Opened the original notification target")
+            }
+        } finally {
+            fixture("RESET")
+            storage.replaceRules(storage.rules().version, original)
+            storage.setSource(publisher, originalSource?.enabled == true)
+            shell("am force-stop $publisher")
+            setNotifications(publisher, enabled = false)
             shell("cmd notification disallow_listener $service")
         }
     }
@@ -611,10 +663,9 @@ class NotificationFlowTest {
         val storage = PushDatabase.open(context).storage
         val service = "${context.packageName}/.listener.PushMeNotListenerService"
         val original = storage.rules().rulesJson
-        val permission = "android.permission.POST_NOTIFICATIONS"
         val history = HistoryQuery(packageName = publisher)
         try {
-            shell("pm grant $publisher $permission")
+            setNotifications(publisher, enabled = true)
             shell("cmd notification allow_listener $service")
             await("listener connected") { PushMeNotListenerService.isConnected.value }
             fixture("RESET")
@@ -647,9 +698,48 @@ class NotificationFlowTest {
         } finally {
             fixture("RESET")
             storage.replaceRules(storage.rules().version, original)
-            shell("pm revoke $publisher $permission")
+            setNotifications(publisher, enabled = false)
             shell("cmd notification disallow_listener $service")
         }
+    }
+
+    private suspend fun clickHistoryItem(tag: String) {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val list = { automation.rootInActiveWindow?.let { findNode(it, "history_list") } }
+        await("history list") { list() != null }
+        // The requested controls appear before the journal rows. Return to the top
+        // before looking for them, then move by less than a viewport at a time.
+        for (attempt in 1..8) {
+            val history = list()?.takeIf { it.isVisibleToUser }
+            if (history == null) {
+                delay(300)
+                continue
+            }
+            if (findNode(history, tag)?.isVisibleToUser == true) {
+                clickUi(tag)
+                return
+            }
+            if (!history.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)) break
+            delay(300)
+        }
+        repeat(8) {
+            val history = list()?.takeIf { it.isVisibleToUser }
+            if (history == null) {
+                delay(300)
+                return@repeat
+            }
+            if (findNode(history, tag)?.isVisibleToUser == true) {
+                clickUi(tag)
+                return
+            }
+            val bounds = Rect().also(history::getBoundsInScreen)
+            val x = bounds.centerX()
+            val top = bounds.top + bounds.height() / 4
+            val bottom = bounds.bottom - bounds.height() / 4
+            shell("input swipe $x $bottom $x $top 400")
+            delay(250)
+        }
+        clickUi(tag)
     }
 
     private suspend fun awaitVisible(text: String, scrollBackward: Boolean = false) {
@@ -679,19 +769,30 @@ class NotificationFlowTest {
         return false
     }
 
-    private suspend fun clickUi(identifier: String, within: String? = null, scroll: Boolean = false) {
+    private suspend fun clickUi(
+        identifier: String,
+        within: String? = null,
+        scroll: Boolean = false,
+        scrollBackward: Boolean = false,
+        untilVisible: String? = null,
+    ) {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        var towardsStart = scrollBackward
         try {
             await("clickable element $identifier") {
                 val root = automation.rootInActiveWindow ?: return@await false
-                val container = if (within == null) root else findNode(root, within) ?: return@await false
-                val node = findNode(container, identifier) ?: run {
-                    if (scroll) scrollForward(root)
+                if (untilVisible != null && findNode(root, untilVisible) != null) return@await true
+                val container = if (within == null) root else findNode(root, within)
+                val node = container?.let { findNode(it, identifier) }
+                if (node == null || !node.isVisibleToUser) {
+                    if (towardsStart) towardsStart = scrollBack(root)
+                    else if (scroll) scrollForward(root)
                     return@await false
                 }
                 var clickable: AccessibilityNodeInfo? = node
                 while (clickable != null && !clickable.isClickable) clickable = clickable.parent
-                clickable?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+                val clicked = clickable?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+                clicked && untilVisible == null
             }
         } catch (failure: AssertionError) {
             val visible = mutableListOf<String>()
@@ -740,6 +841,31 @@ class NotificationFlowTest {
         )
         assertTrue(result, result.contains("Broadcast completed"))
         return result
+    }
+
+    private suspend fun setNotifications(packageName: String, enabled: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val operation = if (enabled) "grant" else "revoke"
+            shell("pm $operation $packageName android.permission.POST_NOTIFICATIONS")
+            return
+        }
+        // Android 12 stores app notification access in the notification service's settings.
+        shell("am start -W -a android.settings.APP_NOTIFICATION_SETTINGS " +
+            "--es android.provider.extra.APP_PACKAGE $packageName")
+        try {
+            await("Android 12 notification settings for $packageName") { notificationSwitchChecked() != null }
+            if (notificationSwitchChecked() != enabled) clickUi("switch_widget", within = "main_switch_bar")
+            await("Android 12 notifications enabled=$enabled for $packageName") { notificationSwitchChecked() == enabled }
+        } finally {
+            shell("input keyevent KEYCODE_BACK")
+        }
+    }
+
+    private fun notificationSwitchChecked(): Boolean? {
+        val root = InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow ?: return null
+        if (root.packageName?.toString() != "com.android.settings") return null
+        val row = findNode(root, "main_switch_bar") ?: return null
+        return findNode(row, "switch_widget")?.isChecked
     }
 
     private fun shell(command: String): String {

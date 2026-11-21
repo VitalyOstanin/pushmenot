@@ -8,7 +8,7 @@ import android.content.SharedPreferences
 import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
-import android.content.pm.PackageManager.PackageInfoFlags
+import androidx.core.content.IntentCompat
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -73,8 +73,10 @@ internal class UpdateInstaller(private val context: Context) {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun installed(): PackageInfo = packages.getPackageInfo(context.packageName, signingFlags)
 
+    @Suppress("DEPRECATION")
     private fun verifyPackage(apk: File, version: String): PackageInfo {
         val installed = installed()
         val candidate = packages.getPackageArchiveInfo(apk.path, signingFlags)
@@ -132,7 +134,7 @@ internal class UpdateInstaller(private val context: Context) {
         private const val SESSION_ID = "session_id"
         private const val VERSION_CODE = "version_code"
         private const val CONFIRMATION_REQUIRED = "confirmation_required"
-        private val signingFlags = PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
+        private const val signingFlags = PackageManager.GET_SIGNING_CERTIFICATES
         private val mutableStatus = MutableStateFlow<UpdateInstallStatus>(UpdateInstallStatus.Idle)
         val status = mutableStatus.asStateFlow()
         private var confirmation: Intent? = null
@@ -147,7 +149,7 @@ internal class UpdateInstaller(private val context: Context) {
             if (result.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1) != pending.id) return
             when (result.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
                 PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                    val prompt = result.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+                    val prompt = IntentCompat.getParcelableExtra(result, Intent.EXTRA_INTENT, Intent::class.java)
                     if (prompt == null) {
                         abandon(context.packageManager.packageInstaller, pending.id)
                         clear(context)

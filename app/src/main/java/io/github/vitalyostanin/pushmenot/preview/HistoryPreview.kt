@@ -1,5 +1,6 @@
 package io.github.vitalyostanin.pushmenot.preview
 
+import com.pushmenot.core.Action
 import com.pushmenot.core.Decision
 import com.pushmenot.core.FilterRule
 import com.pushmenot.core.NotificationEvent
@@ -19,7 +20,11 @@ data class RulePreview(val entries: List<PreviewEntry>, val limitedTo: Int? = nu
 
 object HistoryPreview {
     /** Rows should include any gaps in the selected time range. */
-    fun evaluate(rows: List<JournalItem>, rules: List<FilterRule>): List<PreviewEntry> {
+    fun evaluate(
+        rows: List<JournalItem>,
+        rules: List<FilterRule>,
+        unmatched: (NotificationEvent) -> Action = { Action.KEEP },
+    ): List<PreviewEntry> {
         val ids = mutableListOf<Long>()
         val inputs = buildList {
             for (row in rows.sortedBy(JournalItem::id)) {
@@ -51,7 +56,7 @@ object HistoryPreview {
                 )
             }
         }
-        return ids.zip(RuleEngine.replay(inputs, rules)) { id, result ->
+        return ids.zip(RuleEngine.replay(inputs, rules, unmatched = unmatched)) { id, result ->
             PreviewEntry(id, result.decision, result.complete)
         }
     }

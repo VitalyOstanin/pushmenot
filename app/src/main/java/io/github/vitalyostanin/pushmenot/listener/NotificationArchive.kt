@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Icon
 import android.os.Parcelable
+import androidx.core.os.BundleCompat
 import io.github.vitalyostanin.pushmenot.storage.PushStorage
 import java.io.ByteArrayOutputStream
 
@@ -85,7 +86,7 @@ internal fun readArchive(
         val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES).orEmpty().map { it.toString() }
         val messages = listOf(Notification.EXTRA_HISTORIC_MESSAGES, Notification.EXTRA_MESSAGES)
             .flatMap { key ->
-                val entries = extras.getParcelableArray(key, Parcelable::class.java) ?: return@flatMap emptyList()
+                val entries = BundleCompat.getParcelableArray(extras, key, Parcelable::class.java) ?: return@flatMap emptyList()
                 Notification.MessagingStyle.Message.getMessagesFromBundleArray(entries)
             }
         if (lines.any(reader::isRedacted) || messages.any { reader.isRedacted(it.text?.toString()) }) return null
@@ -102,9 +103,9 @@ internal fun readArchive(
             }
         }
         val text = (supplementary + messageText + actions).takeIf { it.isNotEmpty() }?.joinToString("\n")
-        val bitmap = extras.getParcelable(Notification.EXTRA_PICTURE, Bitmap::class.java)
+        val bitmap = BundleCompat.getParcelable(extras, Notification.EXTRA_PICTURE, Bitmap::class.java)
             ?.takeUnless { it.config == Bitmap.Config.HARDWARE }
-        val icon = extras.getParcelable(Notification.EXTRA_PICTURE_ICON, Icon::class.java)
+        val icon = BundleCompat.getParcelable(extras, Notification.EXTRA_PICTURE_ICON, Icon::class.java)
         NotificationArchive(text, listOf(text, bitmap?.generationId, icon?.toString()).hashCode(), bitmap, icon)
     } catch (_: RuntimeException) {
         null

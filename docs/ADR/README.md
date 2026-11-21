@@ -18,3 +18,4 @@
 
 - [ADR-0006: Check for updates on demand](0006-check-for-updates-on-demand.md)
 - [ADR-0007: Install signed updates through Android](0007-install-signed-updates-through-android.md)
+- [ADR-0008: Version app and channel filtering modes](0008-version-app-and-channel-filtering-modes.md)

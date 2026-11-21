@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Person
+import android.app.PendingIntent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.content.BroadcastReceiver
@@ -13,11 +14,16 @@ import android.net.Uri
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.TextView
 import java.util.Base64
 
 class FixtureActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra("notification_target", false)) {
+            setContentView(TextView(this).apply { text = "Opened the original notification target" })
+            return
+        }
         val delivery = intent.getStringExtra("rule_delivery")
         if (delivery != null) {
             val uri = Uri.parse("content://test.pushmenot.rules/rules.pushmenot")
@@ -57,6 +63,10 @@ class FixtureReceiver : BroadcastReceiver() {
                     .setContentTitle(title)
                     .setContentText("Synthetic test notification")
                 when (intent.getStringExtra("style")) {
+                    "target" -> notification.setContentIntent(PendingIntent.getActivity(
+                        context, id, Intent(context, FixtureActivity::class.java).putExtra("notification_target", true),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    ))
                     "ongoing" -> notification.setOngoing(true)
                     "messages" -> {
                         val self = Person.Builder().setName("Self").build()

@@ -1,5 +1,6 @@
 package io.github.vitalyostanin.pushmenot.ui
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,7 @@ internal fun SettingsScreen(
     focusedPackage: String?,
     section: SettingsSection?,
     onBack: (() -> Unit)?,
+    openHistoryExport: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf(focusedPackage.orEmpty()) }
     var showFields by rememberSaveable { mutableStateOf(false) }
@@ -93,6 +95,7 @@ internal fun SettingsScreen(
                         JournalCapacityButton(true) { editCapacity = true }
                         Help(capacityLabel(capacity))
                     }
+                    ActionButton(R.string.history_export, openHistoryExport, primary = false, tag = "history_export")
                     ActionButton(R.string.clear_history, { clear = true }, primary = false, tag = "clear_history")
                     state.historyShortcut?.let { shortcut ->
                         Title(stringResource(R.string.history_shortcut_setting))
@@ -154,7 +157,13 @@ internal fun SettingsScreen(
             item {
                 Panel {
                     Title(stringResource(R.string.app_language))
-                    ActionButton(R.string.open_language_settings, callbacks.openLanguageSettings, primary = false)
+                    val perAppLanguage = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    if (!perAppLanguage) Help(stringResource(R.string.phone_language_help))
+                    ActionButton(
+                        if (perAppLanguage) R.string.open_language_settings else R.string.open_phone_language_settings,
+                        callbacks.openLanguageSettings,
+                        primary = false,
+                    )
                 }
             }
             item {
@@ -213,7 +222,7 @@ internal fun SettingsScreen(
 }
 
 @Composable
-private fun SettingSwitch(title: Int, checked: Boolean?, tag: String, toggle: (Boolean) -> Unit) {
+internal fun SettingSwitch(title: Int, checked: Boolean?, tag: String, toggle: (Boolean) -> Unit) {
     val label = stringResource(title)
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))

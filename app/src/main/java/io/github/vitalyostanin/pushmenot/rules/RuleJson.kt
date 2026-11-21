@@ -14,11 +14,24 @@ import org.json.JSONObject
 import java.io.IOException
 import java.io.StringReader
 
+data class ModeScope(val packageName: String, val channelId: String? = null)
+
+internal data class RuleDocument(
+    val rules: List<FilterRule>,
+    val enabledApps: Set<String>? = null,
+    val modes: Map<ModeScope, Action> = emptyMap(),
+)
+
+internal fun Map<ModeScope, Action>.unmatchedAction(packageName: String, channelId: String?): Action =
+    get(ModeScope(packageName, channelId)) ?: get(ModeScope(packageName)) ?: Action.KEEP
+
 object RuleJson {
     const val MAX_JSON_CHARS = 512 * 1024
 
     private const val APP_ONLY_VERSION = 1L
     private const val SCOPED_VERSION = 2L
+    private const val APP_SETTINGS_VERSION = 3L
+    private const val MODES_VERSION = 4L
     private const val MAX_RULES = 256
     private const val MAX_ID_CHARS = 128
     private const val MAX_SOURCE_CHARS = 256
@@ -26,9 +39,20 @@ object RuleJson {
     private const val MAX_DEPTH = 4
     private const val MAX_OBJECT_FIELDS = 16
 
-    fun encode(rules: List<FilterRule>): String {
+    fun encode(rules: List<FilterRule>): String = encode(rules, modes = emptyMap())
+
+    internal fun encode(
+        rules: List<FilterRule>,
+        enabledApps: Set<String>? = null,
+        modes: Map<ModeScope, Action>,
+    ): String {
         validate(rules)
-        val version = if (rules.all { it.packageName != null }) APP_ONLY_VERSION else SCOPED_VERSION
+        val version = when {
+            modes.isNotEmpty() -> MODES_VERSION
+            enabledApps != null -> APP_SETTINGS_VERSION
+            rules.all { it.packageName != null } -> APP_ONLY_VERSION
+            else -> SCOPED_VERSION
+        }
         val items = JSONArray()
         for (rule in rules) {
             items.put(
@@ -51,26 +75,88 @@ object RuleJson {
                     .put("enabled", rule.enabled),
             )
         }
-        return JSONObject().put("version", version).put("rules", items).toString()
+        return JSONObject().put("version", version).put("rules", items)
+            .also { document ->
+                if (modes.isNotEmpty()) {
+                    val entries = JSONArray()
+                    for ((scope, action) in modes) {
+                        validatePackageName(scope.packageName)
+                        require(scope.channelId?.let { it.isNotBlank() && it.length <= MAX_SOURCE_CHARS } != false)
+                        entries.put(JSONObject().put("packageName", scope.packageName)
+                            .put("channelId", scope.channelId).put("action", action.name))
+                    }
+                    document.put("unmatchedModes", entries)
+                }
+                if (enabledApps != null) {
+                    enabledApps.forEach(::validatePackageName)
+                    document.put("enabledApps", JSONArray(enabledApps.sorted()))
+                }
+            }
+            .toString()
             .also { require(it.length <= MAX_JSON_CHARS) { "Rule set is too large" } }
     }
 
     /** The storage default is an empty array until the first rule-set write. */
-    fun decode(json: String): List<FilterRule> = if (json == "[]") emptyList() else decodeImport(json)
+    fun decode(json: String): List<FilterRule> = decodeStored(json).rules
 
-    fun decodeImport(json: String): List<FilterRule> {
+    internal fun decodeStored(json: String): RuleDocument =
+        if (json == "[]") RuleDocument(emptyList()) else decodeDocument(json)
+
+    fun decodeImport(json: String): List<FilterRule> = decodeDocument(json).rules
+
+    internal fun decodeDocument(json: String): RuleDocument {
         require(json.length <= MAX_JSON_CHARS) { "Rule set is too large" }
         val document = parse(json)
-        document.checkFields("version", "rules")
         val version = document.required<Long>("version")
-        require(version == APP_ONLY_VERSION || version == SCOPED_VERSION) { "Unsupported rule schema version" }
+        require(version in APP_ONLY_VERSION..MODES_VERSION) { "Unsupported rule schema version" }
+        val appList = when (version) {
+            APP_SETTINGS_VERSION -> {
+                document.checkFields("version", "rules", "enabledApps")
+                document.required<JSONArray>("enabledApps")
+            }
+            MODES_VERSION -> {
+                document.checkFields("version", "rules", "enabledApps", "unmatchedModes")
+                document.optional<JSONArray>("enabledApps")
+            }
+            else -> {
+                document.checkFields("version", "rules")
+                null
+            }
+        }
+        val enabledApps = appList?.let { apps ->
+            buildSet<String> {
+                for (index in 0 until apps.length()) {
+                    val name = apps.opt(index) as? String ?: throw IllegalArgumentException("Expected a package name")
+                    validatePackageName(name)
+                    require(add(name)) { "Duplicate package name" }
+                }
+            }
+        }
+        val modes = if (version == MODES_VERSION) {
+            val entries = document.required<JSONArray>("unmatchedModes")
+            buildMap<ModeScope, Action> {
+                for (index in 0 until entries.length()) {
+                    val item = entries.opt(index) as? JSONObject ?: throw IllegalArgumentException("Expected a mode")
+                    item.checkFields("packageName", "channelId", "action")
+                    val name = item.required<String>("packageName")
+                    validatePackageName(name)
+                    val channel = item.optional<String>("channelId")
+                    require(channel?.let { it.isNotBlank() && it.length <= MAX_SOURCE_CHARS } != false)
+                    require(put(ModeScope(name, channel), enumValueOf<Action>(item.required("action"))) == null)
+                }
+            }
+        } else emptyMap()
         val items = document.required<JSONArray>("rules")
         val rules = List(items.length()) { index ->
             val rule = items.opt(index) as? JSONObject ?: throw IllegalArgumentException("Expected a rule object")
             rule.toRule(version)
         }
         validate(rules)
-        return rules
+        return RuleDocument(rules, enabledApps, modes)
+    }
+
+    private fun validatePackageName(name: String) {
+        require(name.isNotBlank() && name.length <= MAX_SOURCE_CHARS) { "Invalid package name" }
     }
 
     private fun JSONObject.toRule(version: Long): FilterRule {

@@ -85,8 +85,11 @@ class RuleArchive(private val resolver: ContentResolver, private val storage: Pu
                     require(it is Int || it is Long)
                     it.toLong().also { time -> require(time >= 0) }
                 }
-                val rules = RuleJson.decodeImport(row.get("rules") as String)
-                val snapshot = RuleSnapshot(id, date, reason.name, rules.size, RuleJson.encode(rules))
+                val document = RuleJson.decodeDocument(row.get("rules") as String)
+                require(document.enabledApps == null)
+                val snapshot = RuleSnapshot(
+                    id, date, reason.name, document.rules.size, RuleJson.encode(document.rules, modes = document.modes),
+                )
                 if (id == activeId) active = snapshot
                 onSnapshot(snapshot)
             }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -55,16 +57,22 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.pushmenot.core.Action
 import com.pushmenot.core.FilterRule
 import io.github.vitalyostanin.pushmenot.R
 import io.github.vitalyostanin.pushmenot.listener.ShadeCard
 import io.github.vitalyostanin.pushmenot.preview.RulePreview
 import kotlinx.coroutines.flow.Flow
+import io.github.vitalyostanin.pushmenot.rules.ModeScope
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
 import io.github.vitalyostanin.pushmenot.storage.NotificationStatistics
+import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.SourceSettings
 import io.github.vitalyostanin.pushmenot.transfer.ImportMode
+import io.github.vitalyostanin.pushmenot.transfer.HistoryExportOptions
 import io.github.vitalyostanin.pushmenot.transfer.ImportPreview
+import io.github.vitalyostanin.pushmenot.transfer.RuleTransfer
 import io.github.vitalyostanin.pushmenot.updates.UpdateResult
 
 data class ScreenCallbacks(
@@ -87,7 +95,8 @@ data class ScreenCallbacks(
     val deleteRule: (String) -> Unit,
     val beginImport: () -> Unit,
     val beginExport: () -> Unit,
-    val confirmImport: (ImportMode) -> Unit,
+    val shareRules: () -> Unit = {},
+    val confirmImport: (ImportMode, Boolean) -> Unit,
     val configureHistoryShortcut: () -> Unit,
     val beginArchiveOpen: () -> Unit,
     val beginArchiveSave: () -> Unit,
@@ -100,6 +109,10 @@ data class ScreenCallbacks(
     val dismissMessage: () -> Unit,
     val previewRule: suspend (FilterRule, Boolean) -> RulePreview,
     val filterHistory: (HistoryFilters) -> Unit = {},
+    val unmatchedModeSample: suspend (String) -> List<JournalItem> = { emptyList() },
+    val saveUnmatchedMode: (ModeScope, Action?) -> Unit = { _, _ -> },
+    val countHistoryExport: suspend (HistoryExportOptions) -> Int = { 0 },
+    val exportHistory: (HistoryExportOptions) -> Unit = {},
 )
 
 data class HistoryFilters(
@@ -149,12 +162,15 @@ private enum class Destination(val section: Section) {
     APPS(Section.SOURCES),
     SETTINGS(Section.SETTINGS),
     SETTINGS_SECTION(Section.SETTINGS),
+    HISTORY_EXPORT(Section.SETTINGS),
     APP(Section.SOURCES),
     APP_HISTORY(Section.HISTORY),
     RULES(Section.RULES),
+    RULES_HELP(Section.RULES),
     GLOBAL_RULES(Section.RULES),
     RULE_VERSIONS(Section.RULES),
     APP_RULES(Section.RULES),
+    UNMATCHED_MODE(Section.RULES),
     EDIT_RULE(Section.RULES),
     NEW_RULE(Section.RULES),
     RULE_FROM_ENTRY(Section.RULES),
@@ -356,9 +372,9 @@ private fun RenderRoute(
     when {
         archive != null -> BackupReviewScreen(archive, callbacks.confirmArchive, callbacks.cancelImport)
         import?.restoreSnapshot != null -> VersionRestoreScreen(
-            import, labels, { callbacks.confirmImport(ImportMode.REPLACE) }, callbacks.cancelImport,
+            import, labels, { callbacks.confirmImport(ImportMode.REPLACE, false) }, callbacks.cancelImport,
         )
-        import != null -> ImportScreen(import, labels, callbacks.confirmImport, callbacks.cancelImport)
+        import != null -> ImportScreen(import, labels, settings.filterValues { it.enabled }.keys, callbacks.confirmImport, callbacks.cancelImport)
         route.destination.isRuleEditor -> RenderRuleEditor(
             route, state, selectedPackages, shadeDraft, callbacks, back,
         )
@@ -374,27 +390,38 @@ private fun RenderRoute(
             add = { open(Destination.SETTINGS_SECTION, SettingsSection.APPS.name) },
             open = { open(Destination.APP, it) },
         )
+        route.destination == Destination.HISTORY_EXPORT -> HistoryExportScreen(
+            state.historyApps, labels, callbacks.countHistoryExport, callbacks.exportHistory, back,
+        )
         route.destination == Destination.SETTINGS || route.destination == Destination.SETTINGS_SECTION -> SettingsScreen(
             state, callbacks,
             focusedPackage = route.key.takeIf { route.destination == Destination.SETTINGS },
             section = if (route.destination == Destination.SETTINGS_SECTION) SettingsSection.valueOf(app) else null,
             onBack = back.takeIf { hasParent },
+            openHistoryExport = { open(Destination.HISTORY_EXPORT, null) },
         )
         route.destination == Destination.RULES -> RulesScreen(
             state.rules, labels, settings, installed, state.rulesCanUndo,
             versions = { open(Destination.RULE_VERSIONS, null) },
+            help = { open(Destination.RULES_HELP, null) },
             globals = { open(Destination.GLOBAL_RULES, null) },
             appRules = { open(Destination.APP_RULES, it) },
             callbacks = callbacks,
         )
+        route.destination == Destination.RULES_HELP -> RulesHelpScreen(back)
         route.destination == Destination.RULE_VERSIONS -> RuleVersionsScreen(
             state.ruleVersions, state.activeSnapshotId, callbacks, back,
+        )
+        route.destination == Destination.UNMATCHED_MODE -> UnmatchedModeScreen(
+            app, labels[app] ?: app, state.rules, state.modes,
+            app in selectedPackages, callbacks.unmatchedModeSample, callbacks.saveUnmatchedMode, back,
         )
         route.destination == Destination.GLOBAL_RULES ||
             route.destination == Destination.APP_RULES -> ScopedRulesScreen(
             app.takeIf { route.destination == Destination.APP_RULES },
             state.rules, labels, selectedPackages,
             edit = { open(Destination.EDIT_RULE, it.id) },
+            openUnmatchedMode = { open(Destination.UNMATCHED_MODE, app) },
             create = { open(Destination.NEW_RULE, it) },
             onBack = back,
         )
@@ -616,17 +643,27 @@ private fun RulesScreen(
     installed: Set<String>,
     canUndo: Boolean,
     versions: () -> Unit,
+    help: () -> Unit,
     globals: () -> Unit,
     appRules: (String) -> Unit,
     callbacks: ScreenCallbacks,
 ) {
+    var exportOpen by rememberSaveable { mutableStateOf(false) }
     val packages = (
         settings.values.filter(SourceSettings::enabled).map(SourceSettings::packageName) +
             rules.mapNotNull(FilterRule::packageName)
         ).distinct().sortedBy { labels[it] ?: it }
     Column {
-        ScreenHeader(stringResource(R.string.rules))
-        LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ScreenHeader(stringResource(R.string.rules), action = {
+            TextButton(onClick = help, modifier = Modifier.testTag("rules_help")) {
+                Text(stringResource(R.string.rules_help))
+            }
+        })
+        LazyColumn(
+            modifier = Modifier.testTag("rules_list"),
+            contentPadding = screenPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             item { ActionButton(R.string.global_rules, globals, primary = false, tag = "global_rules") }
             item { Title(stringResource(R.string.rules_by_app)) }
             if (packages.isEmpty()) item { Help(stringResource(R.string.no_app_rules_sources)) }
@@ -641,9 +678,62 @@ private fun RulesScreen(
             }
             item { ActionButton(R.string.rule_version_history, versions, primary = false, tag = "rule_versions") }
             item { ActionButton(R.string.import_rules, callbacks.beginImport, primary = false, tag = "rule_import") }
-            item { ActionButton(R.string.export_rules, callbacks.beginExport, primary = false, tag = "rule_export") }
+            item { ActionButton(R.string.export_rules, { exportOpen = true }, primary = false, tag = "rule_export") }
             if (canUndo) item { ActionButton(R.string.undo_rules, callbacks.undoImport, primary = false) }
             item { Help(stringResource(R.string.rule_files_explanation)) }
+        }
+    }
+    if (exportOpen) {
+        Dialog(onDismissRequest = { exportOpen = false }) {
+            Panel {
+                Title(stringResource(R.string.export_rules_title))
+                Text(RuleTransfer.NAME, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.export_rules_contents))
+                ActionButton(R.string.export_rules_share, {
+                    exportOpen = false
+                    callbacks.shareRules()
+                }, tag = "rule_export_share")
+                ActionButton(R.string.export_rules_save, {
+                    exportOpen = false
+                    callbacks.beginExport()
+                }, primary = false, tag = "rule_export_save")
+                ActionButton(R.string.cancel, { exportOpen = false }, primary = false, tag = "rule_export_cancel")
+            }
+        }
+    }
+}
+
+@Composable
+private fun RulesHelpScreen(back: () -> Unit) {
+    Column {
+        ScreenHeader(stringResource(R.string.rules_help_title), back)
+        LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item {
+                Panel {
+                    Title(stringResource(R.string.rules_help_applies))
+                    Text(stringResource(R.string.rules_help_applies_body))
+                }
+            }
+            item {
+                Panel {
+                    Title(stringResource(R.string.rules_help_priority))
+                    listOf(
+                        R.string.rules_help_app_keep,
+                        R.string.rules_help_global_keep,
+                        R.string.rules_help_app_hide,
+                        R.string.rules_help_global_hide,
+                    ).forEachIndexed { index, label ->
+                        Text(stringResource(R.string.rules_help_priority_item, index + 1, stringResource(label)))
+                    }
+                    Help(stringResource(R.string.rules_help_ties))
+                }
+            }
+            item {
+                Panel {
+                    Title(stringResource(R.string.rules_help_example))
+                    Text(stringResource(R.string.rules_help_example_body))
+                }
+            }
         }
     }
 }
@@ -655,6 +745,7 @@ private fun ScopedRulesScreen(
     labels: Map<String, String>,
     selectedPackages: Set<String>,
     edit: (FilterRule) -> Unit,
+    openUnmatchedMode: () -> Unit,
     create: (String?) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -667,6 +758,7 @@ private fun ScopedRulesScreen(
         ScreenHeader(title, onBack)
         LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (packageName != null) {
+                item { ActionButton(R.string.unmatched_title, openUnmatchedMode, primary = false, tag = "unmatched_mode") }
                 item { Title(stringResource(R.string.app_rules)) }
                 item { ActionButton(R.string.new_rule, { create(packageName) }, tag = "rule_new") }
                 if (localRules.isEmpty()) item { Help(stringResource(R.string.no_rules)) }
@@ -706,14 +798,23 @@ private fun RuleRow(rule: FilterRule, edit: (FilterRule) -> Unit) {
 private fun ImportScreen(
     preview: ImportPreview,
     labels: Map<String, String>,
-    confirm: (ImportMode) -> Unit,
+    enabledApps: Set<String>,
+    confirm: (ImportMode, Boolean) -> Unit,
     cancel: () -> Unit,
 ) {
     var mode by remember(preview) { mutableStateOf(ImportMode.APPEND) }
     val append = mode == ImportMode.APPEND
+    val packages = preview.enabledApps ?: preview.legacyApps
+    val legacy = preview.enabledApps == null
+    var importApps by remember(preview) { mutableStateOf(!legacy) }
+    val willEnableApps = importApps && packages.any { it !in enabledApps }
     Column {
         ScreenHeader(stringResource(R.string.review_import))
-        LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(
+            modifier = Modifier.testTag("import_preview_list"),
+            contentPadding = screenPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             item {
                 Panel {
                     Title(stringResource(R.string.import_mode))
@@ -730,6 +831,7 @@ private fun ImportScreen(
                     Text(stringResource(R.string.import_add, if (append) preview.appendedIds.size else preview.addedIds.size))
                     if (append) {
                         Text(stringResource(R.string.import_skipped, preview.skippedCount))
+                        if (preview.appendedModes > 0) Help(stringResource(R.string.import_append_modes, preview.appendedModes))
                         if (!preview.appendFits) Help(stringResource(R.string.import_append_limit))
                         else if (!preview.canAppend) Help(stringResource(R.string.import_no_new))
                     } else {
@@ -737,11 +839,41 @@ private fun ImportScreen(
                     }
                 }
             }
+            if (packages.isNotEmpty()) {
+                item {
+                    Panel {
+                        Title(stringResource(if (legacy) R.string.import_legacy_apps else R.string.import_file_apps))
+                        if (legacy) Help(stringResource(R.string.import_legacy_apps_help))
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .toggleable(importApps, role = Role.Checkbox, onValueChange = { importApps = it }),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Checkbox(checked = importApps, onCheckedChange = null)
+                            Text(stringResource(if (legacy) R.string.import_enable_legacy_apps else R.string.import_enable_apps))
+                        }
+                    }
+                }
+                if (importApps) {
+                    items(packages.sorted()) { packageName ->
+                        Panel {
+                            Text(labels[packageName] ?: packageName)
+                            Help(stringResource(when {
+                                packageName !in labels -> R.string.import_app_pending_install
+                                packageName in enabledApps -> R.string.import_app_already_enabled
+                                else -> R.string.import_app_will_enable
+                            }))
+                        }
+                    }
+                }
+            }
+            item { Help(stringResource(R.string.import_active_review_help)) }
             item {
                 ActionButton(
                     if (append) R.string.append_rules else R.string.replace_rules,
-                    { confirm(mode) },
-                    enabled = !append || preview.canAppend,
+                    { confirm(mode, importApps) },
+                    enabled = !append || (preview.appendFits && (preview.canAppend || willEnableApps)),
                     tag = if (append) "rule_append" else "rule_replace",
                 )
             }
@@ -769,6 +901,7 @@ private fun ImportChoice(title: Int, help: Int, checked: Boolean, tag: String, s
 @Composable
 internal fun RuleDifference(preview: ImportPreview, labels: Map<String, String>) {
     Text(stringResource(R.string.import_update, preview.changedIds.size))
+    if (preview.modesChanged) Help(stringResource(R.string.import_replace_modes))
     Text(stringResource(R.string.import_remove, preview.removedIds.size))
     if (preview.orderChanged) Help(stringResource(R.string.import_order))
     if (preview.scopeChangedIds.isNotEmpty()) Help(stringResource(R.string.import_scope_changes, preview.scopeChangedIds.size))

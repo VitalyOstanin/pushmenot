@@ -1,5 +1,6 @@
 package io.github.vitalyostanin.pushmenot.listener
 
+import android.app.PendingIntent
 import android.os.Process
 import android.os.SystemClock
 import android.service.notification.NotificationListenerService
@@ -9,6 +10,7 @@ import com.pushmenot.core.Action
 import com.pushmenot.core.NotificationEvent
 import com.pushmenot.core.RuleEngine
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
+import io.github.vitalyostanin.pushmenot.rules.unmatchedAction
 import io.github.vitalyostanin.pushmenot.shortcut.HistoryShortcut
 import io.github.vitalyostanin.pushmenot.storage.FrequencyJson
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
@@ -65,6 +67,7 @@ class PushMeNotListenerService : NotificationListenerService() {
         scope.launch {
             storage.observeJournalSettings().collect { settings ->
                 retention = settings
+                if (!settings.retainContent) JournalDestinations.clear()
                 activateWhenReady()
             }
         }
@@ -102,6 +105,7 @@ class PushMeNotListenerService : NotificationListenerService() {
     }
 
     override fun onListenerDisconnected() {
+        JournalDestinations.clear()
         connected = false
         clearShadeProvider()
         connection.value = false
@@ -147,6 +151,7 @@ class PushMeNotListenerService : NotificationListenerService() {
                 key = sbn.key,
                 slot = slot,
                 snapshot = snapshot,
+                contentAction = sbn.activityAction(),
                 sourceRevision = source?.consentRevision,
                 retentionRevision = settings.retentionRevision.takeIf { settings.retainContent },
                 archive = archive,
@@ -174,6 +179,7 @@ class PushMeNotListenerService : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        JournalDestinations.clear()
         if (connected) connection.value = false
         clearShadeProvider()
         connected = false
@@ -314,8 +320,9 @@ class PushMeNotListenerService : NotificationListenerService() {
         val reviewingEpoch = epoch
         val ruleSet = storage.rules()
         if (ruleSet.version != version) return
-        val rules = RuleJson.decode(ruleSet.rulesJson).filter { it.frequency == null }
-        if (rules.none { it.enabled && it.action == Action.HIDE }) return
+        val document = RuleJson.decodeStored(ruleSet.rulesJson)
+        val rules = document.rules.filter { it.frequency == null }
+        if (document.modes.values.none { it == Action.HIDE } && rules.none { it.enabled && it.action == Action.HIDE }) return
         val visible = activeNotifications ?: return
         val rankingMap = currentRanking
         for (card in visible) {
@@ -337,8 +344,10 @@ class PushMeNotListenerService : NotificationListenerService() {
                 elapsedMillis = SystemClock.elapsedRealtime(),
                 observedAtMillis = System.currentTimeMillis(),
                 reviewVersion = version,
+                contentAction = card.activityAction(),
             )
-            if (RuleEngine.evaluate(notificationEvent(event), rules).decision.action != Action.HIDE) continue
+            val fallback = document.modes.unmatchedAction(snapshot.packageName, snapshot.channelId)
+            if (RuleEngine.evaluate(notificationEvent(event), rules, unmatched = fallback).decision.action != Action.HIDE) continue
             val archive = if (settings.retainContent) readArchive(card.notification, snapshot, reader) else null
             handlePosted(event.copy(archive = archive))
         }
@@ -358,6 +367,9 @@ class PushMeNotListenerService : NotificationListenerService() {
         }
     }
 
+    private fun StatusBarNotification.activityAction(): PendingIntent? =
+        notification.contentIntent?.takeIf { it.isActivity && it.creatorPackage == packageName }
+
     private suspend fun handlePosted(event: Posted) {
         val outcome = withContext(Dispatchers.Default) {
             val image = event.archive?.encodeImage(this@PushMeNotListenerService, event.snapshot.packageName)
@@ -365,6 +377,11 @@ class PushMeNotListenerService : NotificationListenerService() {
         } ?: return
         if (event.reviewVersion != null) event.slot.revision++
         event.slot.journalId = outcome.journalId
+        if (connected && event.epoch == epoch && event.retentionRevision != null &&
+            event.retentionRevision == retention?.retentionRevision
+        ) {
+            event.contentAction?.let { JournalDestinations.remember(outcome.journalId, it) }
+        }
         if (outcome.action != Action.HIDE || !isCurrent(event)) return
 
         val current = withContext(Dispatchers.IO) {
@@ -415,10 +432,12 @@ class PushMeNotListenerService : NotificationListenerService() {
         if (review && ruleSet?.version != event.reviewVersion) return@withTransaction null
         val previous = if (ruleSet != null && !review) storage.frequency() else null
         val evaluation = if (ruleSet != null) {
-            val rules = RuleJson.decode(ruleSet.rulesJson).let { all ->
-                if (review) all.filter { it.frequency == null } else all
-            }
-            RuleEngine.evaluate(notification, rules, FrequencyJson.decode(previous))
+            val document = RuleJson.decodeStored(ruleSet.rulesJson)
+            val rules = if (review) document.rules.filter { it.frequency == null } else document.rules
+            RuleEngine.evaluate(
+                notification, rules, FrequencyJson.decode(previous),
+                document.modes.unmatchedAction(card.packageName, card.channelId),
+            )
         } else {
             null
         }
@@ -478,6 +497,7 @@ class PushMeNotListenerService : NotificationListenerService() {
         val elapsedMillis: Long,
         val observedAtMillis: Long,
         val reviewVersion: Long? = null,
+        val contentAction: PendingIntent? = null,
     ) : Signal
 
     private data class Removed(

@@ -3,17 +3,17 @@ package io.github.vitalyostanin.pushmenot.sources
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 
 data class InstalledSource(val packageName: String, val label: String)
 
 class AndroidSources(private val context: Context) {
+    @Suppress("DEPRECATION")
     fun installedApps(): List<InstalledSource> {
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         val packageManager = context.packageManager
-        return packageManager.queryIntentActivities(launcher, PackageManager.ResolveInfoFlags.of(0))
+        return packageManager.queryIntentActivities(launcher, 0)
             .asSequence()
             .filter { it.activityInfo.packageName != context.packageName }
             .distinctBy { it.activityInfo.packageName }

@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import java.io.File
 import java.io.FileNotFoundException
 
 class FixtureRuleFiles : ContentProvider() {
@@ -12,7 +13,12 @@ class FixtureRuleFiles : ContentProvider() {
     override fun getType(uri: Uri): String = MIME
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
-        if (mode != "r" || uri.lastPathSegment != "rules.pushmenot") throw FileNotFoundException()
+        if (mode != "r") throw FileNotFoundException()
+        if (uri.lastPathSegment == "received.pushmenot") {
+            return ParcelFileDescriptor.open(File(checkNotNull(context).filesDir, "received.pushmenot"),
+                ParcelFileDescriptor.MODE_READ_ONLY)
+        }
+        if (uri.lastPathSegment != "rules.pushmenot") throw FileNotFoundException()
         return openPipeHelper(uri, MIME, null, RULES) { output, _, _, _, data ->
             ParcelFileDescriptor.AutoCloseOutputStream(output).use { it.write(checkNotNull(data).toByteArray(Charsets.UTF_8)) }
         }

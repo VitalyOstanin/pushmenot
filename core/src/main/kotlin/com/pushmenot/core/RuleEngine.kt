@@ -12,7 +12,7 @@ data class FrequencyState(
     val lastElapsedMillis: Long? = null,
 )
 
-enum class DecisionReason { RULE_MATCH, NO_MATCH, PROTECTED, CONTENT_UNAVAILABLE }
+enum class DecisionReason { RULE_MATCH, NO_MATCH, UNMATCHED_MODE, PROTECTED, CONTENT_UNAVAILABLE }
 
 data class Decision(
     val action: Action,
@@ -41,6 +41,7 @@ object RuleEngine {
         event: NotificationEvent,
         rules: List<FilterRule>,
         state: FrequencyState = FrequencyState(),
+        unmatched: Action = Action.KEEP,
     ): Evaluation {
         val activeRules = rules.filter(FilterRule::enabled)
         val limits = activeRules.mapNotNull { rule -> rule.frequency?.let { rule.version to it } }.toMap()
@@ -74,7 +75,30 @@ object RuleEngine {
         }
 
         val matchedRule = keep ?: hide
-        return result(matchedRule?.matchDecision() ?: Decision(Action.KEEP, DecisionReason.NO_MATCH))
+        return result(matchedRule?.matchDecision() ?: Decision(
+            unmatched, if (unmatched == Action.HIDE) DecisionReason.UNMATCHED_MODE else DecisionReason.NO_MATCH,
+        ))
+    }
+
+    /** A null result means an applicable frequency window could change the winning rule. */
+    fun assessWithoutFrequencyHistory(
+        event: NotificationEvent,
+        rules: List<FilterRule>,
+        unmatched: Action = Action.KEEP,
+    ): Decision? {
+        val decision = evaluate(event, rules.filter { it.frequency == null }, unmatched = unmatched).decision
+        if (decision.reason == DecisionReason.PROTECTED || decision.reason == DecisionReason.CONTENT_UNAVAILABLE ||
+            decision.reason == DecisionReason.RULE_MATCH && decision.action == Action.KEEP
+        ) return decision
+
+        val winnerIndex = rules.indexOfFirst { it.version == decision.rule }
+        val winner = rules.getOrNull(winnerIndex)
+        for ((index, rule) in rules.withIndex()) {
+            val frequency = rule.frequency ?: continue
+            if (!rule.enabled || match(rule, event) != Match.YES || frequencyKey(rule, event, frequency) == null) continue
+            if (rule.hasPriorityOver(winner) || rule.scope == winner?.scope && index < winnerIndex) return null
+        }
+        return decision
     }
 
     /**
@@ -85,6 +109,7 @@ object RuleEngine {
         inputs: Iterable<ReplayInput>,
         rules: List<FilterRule>,
         startsAtKnownReset: Boolean = false,
+        unmatched: (NotificationEvent) -> Action = { Action.KEEP },
     ): List<ReplayDecision> {
         val decisions = mutableListOf<ReplayDecision>()
         var state = FrequencyState()
@@ -107,7 +132,7 @@ object RuleEngine {
                 unknownObservations.clear()
             }
             val first = firstElapsedMillis ?: event.elapsedMillis.also { firstElapsedMillis = it }
-            val evaluation = evaluate(event, rules, state)
+            val evaluation = evaluate(event, rules, state, unmatched(event))
             state = evaluation.frequencyState
             var complete = true
             for (rule in rules) {

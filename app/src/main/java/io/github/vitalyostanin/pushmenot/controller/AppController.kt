@@ -1,18 +1,21 @@
 package io.github.vitalyostanin.pushmenot.controller
 
 import android.app.Application
-import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
+import com.pushmenot.core.Action
 import com.pushmenot.core.FilterRule
 import io.github.vitalyostanin.pushmenot.R
+import io.github.vitalyostanin.pushmenot.listener.JournalDestinations
 import io.github.vitalyostanin.pushmenot.listener.PushMeNotListenerService
 import io.github.vitalyostanin.pushmenot.preview.HistoryPreview
 import io.github.vitalyostanin.pushmenot.preview.PreviewEntry
 import io.github.vitalyostanin.pushmenot.preview.RulePreview
+import io.github.vitalyostanin.pushmenot.rules.ModeScope
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
+import io.github.vitalyostanin.pushmenot.rules.unmatchedAction
 import io.github.vitalyostanin.pushmenot.reliability.BackgroundSettings
 import io.github.vitalyostanin.pushmenot.reliability.BatterySettingsDestination
 import io.github.vitalyostanin.pushmenot.sources.AndroidSources
@@ -21,6 +24,8 @@ import io.github.vitalyostanin.pushmenot.storage.HistoryQuery
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.PushDatabase
 import io.github.vitalyostanin.pushmenot.shortcut.HistoryShortcutState
+import io.github.vitalyostanin.pushmenot.transfer.HistoryExport
+import io.github.vitalyostanin.pushmenot.transfer.HistoryExportOptions
 import io.github.vitalyostanin.pushmenot.transfer.ImportMode
 import io.github.vitalyostanin.pushmenot.transfer.RuleArchive
 import io.github.vitalyostanin.pushmenot.transfer.RuleTransfer
@@ -51,10 +56,13 @@ class AppController(application: Application) : AndroidViewModel(application) {
     private val backgroundSettings = BackgroundSettings(application)
     private val archive = RuleArchive(application.contentResolver, storage)
     private val transfer = RuleTransfer(application.contentResolver, storage)
+    private val historyExport = HistoryExport(application.contentResolver, application.cacheDir, storage)
+    var pendingHistoryExport: HistoryExportOptions? = null
     private val updateChecker = GitHubUpdateChecker()
     private val updateInstaller = UpdateInstaller(application)
+    @Suppress("DEPRECATION")
     private val installedVersion = application.packageManager.getPackageInfo(
-        application.packageName, PackageManager.PackageInfoFlags.of(0),
+        application.packageName, 0,
     ).versionName.orEmpty()
     private val mutableState = MutableStateFlow(
         ScreenState(
@@ -95,8 +103,11 @@ class AppController(application: Application) : AndroidViewModel(application) {
         }
         operation {
             storage.observeRules().collect { set ->
-                val rules = withContext(Dispatchers.Default) { RuleJson.decode(set.rulesJson) }
-                mutableState.update { it.copy(rules = rules, rulesCanUndo = set.previousRulesJson != null, activeSnapshotId = set.activeRevisionId) }
+                val document = withContext(Dispatchers.Default) { RuleJson.decodeStored(set.rulesJson) }
+                mutableState.update {
+                    it.copy(rules = document.rules, modes = document.modes,
+                        rulesCanUndo = set.previousRulesJson != null, activeSnapshotId = set.activeRevisionId)
+                }
             }
         }
         operation {
@@ -243,7 +254,8 @@ class AppController(application: Application) : AndroidViewModel(application) {
 
     private suspend fun persistRule(draft: FilterRule, enableSource: Boolean) {
         val current = storage.rules()
-        val rules = RuleJson.decode(current.rulesJson)
+        val document = RuleJson.decodeStored(current.rulesJson)
+        val rules = document.rules
         val previous = rules.firstOrNull { it.id == draft.id }
         val updated = if (previous == null) {
             check(draft.revision == 1L)
@@ -254,22 +266,44 @@ class AppController(application: Application) : AndroidViewModel(application) {
                 if (it.id == draft.id) draft.copy(revision = previous.revision + 1) else it
             }
         }
-        check(storage.replaceRules(current.version, RuleJson.encode(updated)) != null)
+        check(storage.replaceRules(current.version, RuleJson.encode(updated, modes = document.modes)) != null)
         if (enableSource) storage.setSource(requireNotNull(draft.packageName), true)
     }
 
     fun deleteRule(id: String) {
         operation {
             val current = storage.rules()
-            val rules = RuleJson.decode(current.rulesJson).filterNot { it.id == id }
-            check(storage.replaceRules(current.version, RuleJson.encode(rules)) != null)
+            val document = RuleJson.decodeStored(current.rulesJson)
+            val rules = document.rules.filterNot { it.id == id }
+            check(storage.replaceRules(current.version, RuleJson.encode(rules, modes = document.modes)) != null)
+            showMessage(R.string.rules_saved)
+        }
+    }
+
+    suspend fun unmatchedModeSample(packageName: String): List<JournalItem> =
+        storage.historyPage(HistoryQuery(packageName = packageName, limit = 100))
+
+    fun saveUnmatchedMode(scope: ModeScope, action: Action?) {
+        operation {
+            val current = storage.rules()
+            val document = RuleJson.decodeStored(current.rulesJson)
+            val modes = if (action == null || (scope.channelId == null && action == Action.KEEP)) {
+                document.modes - scope
+            } else {
+                document.modes + (scope to action)
+            }
+            check(storage.replaceRules(current.version, RuleJson.encode(document.rules, modes = modes)) != null)
             showMessage(R.string.rules_saved)
         }
     }
 
     suspend fun previewRule(rule: FilterRule, enableSource: Boolean): RulePreview {
         try {
-            val current = RuleJson.decode(storage.rules().rulesJson)
+            val document = RuleJson.decodeStored(storage.rules().rulesJson)
+            val current = document.rules
+            val unmatched: (com.pushmenot.core.NotificationEvent) -> Action = {
+                document.modes.unmatchedAction(it.packageName, it.channelId)
+            }
             val existing = current.firstOrNull { it.id == rule.id }
             val proposed = if (existing == null) current + rule else current.map {
                 if (it.id == rule.id) rule else it
@@ -285,9 +319,9 @@ class AppController(application: Application) : AndroidViewModel(application) {
             return withContext(Dispatchers.Default) {
                 val rows = sample.take(HISTORY_CAP)
                 val baseline = HistoryPreview.evaluate(
-                    rows.filter { it.packageName != newSource || newSource == null }, current,
+                    rows.filter { it.packageName != newSource || newSource == null }, current, unmatched,
                 ).associateBy(PreviewEntry::journalId)
-                val entries = HistoryPreview.evaluate(rows, proposed).map { candidate ->
+                val entries = HistoryPreview.evaluate(rows, proposed, unmatched).map { candidate ->
                     val previous = baseline[candidate.journalId]
                     candidate.copy(
                         complete = candidate.complete && previous?.complete != false,
@@ -318,11 +352,11 @@ class AppController(application: Application) : AndroidViewModel(application) {
         mutableState.update { it.copy(importPreview = null, archivePreview = null) }
     }
 
-    fun confirmImport(mode: ImportMode) {
+    fun confirmImport(mode: ImportMode, importApps: Boolean) {
         val preview = state.value.importPreview ?: return
         cancelImport()
         operation {
-            check(transfer.applyImport(preview, mode) != null)
+            check(transfer.applyImport(preview, mode, importApps) != null)
             showMessage(if (preview.restoreSnapshot == null) R.string.import_completed else R.string.history_restore_done)
         }
     }
@@ -373,6 +407,8 @@ class AppController(application: Application) : AndroidViewModel(application) {
         showMessage(R.string.rule_file_failed)
     }
 
+    suspend fun prepareRulesShare() = transfer.prepareShare(getApplication())
+
     fun export(uri: Uri) {
         operation {
             transfer.export(uri)
@@ -396,9 +432,22 @@ class AppController(application: Application) : AndroidViewModel(application) {
         operation { storage.setContentRetention(enabled) }
     }
 
+    suspend fun countHistoryExport(options: HistoryExportOptions): Int = historyExport.count(options)
+
+    fun completeHistoryExport(uri: Uri?) {
+        val options = pendingHistoryExport
+        pendingHistoryExport = null
+        if (uri == null) return
+        operation {
+            historyExport.write(uri, checkNotNull(options))
+            showMessage(R.string.history_export_done)
+        }
+    }
+
     fun clearHistory() {
         operation {
             storage.clearHistory()
+            JournalDestinations.clear()
             showMessage(R.string.history_cleared)
         }
     }

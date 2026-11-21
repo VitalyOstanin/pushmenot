@@ -5,6 +5,7 @@ import android.app.Notification
 import android.content.res.Resources
 import android.os.Build
 import android.os.Parcelable
+import androidx.core.os.BundleCompat
 import android.service.notification.NotificationListenerService.Ranking
 import android.service.notification.NotificationListenerService.RankingMap
 import android.service.notification.StatusBarNotification
@@ -76,7 +77,7 @@ internal class NotificationReader(private val resources: Resources) {
 
     private fun content(notification: Notification, metadata: NotificationSnapshot): NotificationSnapshot {
         val extras = notification.extras ?: return metadata
-        val rawMessages = extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java)
+        val rawMessages = BundleCompat.getParcelableArray(extras, Notification.EXTRA_MESSAGES, Parcelable::class.java)
         val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
         if (rawMessages != null && rawMessages.size > 1 || textLines != null && textLines.size > 1) {
             return metadata.copy(protection = Protection.AMBIGUOUS_MESSAGES)

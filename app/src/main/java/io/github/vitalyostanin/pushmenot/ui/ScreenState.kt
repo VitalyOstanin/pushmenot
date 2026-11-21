@@ -1,6 +1,8 @@
 package io.github.vitalyostanin.pushmenot.ui
 
+import com.pushmenot.core.Action
 import com.pushmenot.core.FilterRule
+import io.github.vitalyostanin.pushmenot.rules.ModeScope
 import io.github.vitalyostanin.pushmenot.reliability.BackgroundStatus
 import io.github.vitalyostanin.pushmenot.sources.InstalledSource
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
@@ -20,6 +22,7 @@ data class ScreenState(
     val sources: List<SourceSettings>,
     val history: List<JournalItem>,
     val rules: List<FilterRule>,
+    val modes: Map<ModeScope, Action> = emptyMap(),
     val historyHasMore: Boolean = false,
     val historyQuery: String = "",
     val importPreview: ImportPreview? = null,

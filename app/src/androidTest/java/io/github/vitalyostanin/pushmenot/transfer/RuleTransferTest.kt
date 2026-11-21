@@ -6,7 +6,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pushmenot.core.Action
 import com.pushmenot.core.FilterRule
 import com.pushmenot.core.TextCondition
+import io.github.vitalyostanin.pushmenot.rules.ModeScope
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
+import io.github.vitalyostanin.pushmenot.rules.unmatchedAction
 import io.github.vitalyostanin.pushmenot.storage.PushDatabase
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -51,6 +53,59 @@ class RuleTransferTest {
         } finally {
             storage.replaceRules(storage.rules().version, original)
             document.delete()
+        }
+    }
+
+    @Test
+    fun transfersEnabledAppsEvenWithoutLocalRulesOrInstalledPackages() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val storage = PushDatabase.open(context).storage
+        val transfer = RuleTransfer(context.contentResolver, storage)
+        val absentApp = "example.transfer.absent"
+        val unrelatedApp = "example.transfer.local"
+        val document = File.createTempFile("rules-app-settings", ".json", context.cacheDir)
+        try {
+            storage.setSource(absentApp, true)
+            val uri = Uri.fromFile(document)
+            transfer.export(uri)
+            assertTrue(absentApp in requireNotNull(RuleJson.decodeDocument(document.readText()).enabledApps))
+            storage.setSource(absentApp, false)
+            storage.setSource(unrelatedApp, true)
+
+            val preview = transfer.prepareImport(uri)
+            assertNotNull(transfer.applyImport(preview, ImportMode.APPEND, importApps = false))
+            assertEquals(false, storage.source(absentApp)?.enabled)
+            assertNotNull(transfer.applyImport(preview, ImportMode.APPEND, importApps = true))
+            assertEquals(true, storage.source(absentApp)?.enabled)
+            assertEquals(true, storage.source(unrelatedApp)?.enabled)
+        } finally {
+            storage.setSource(absentApp, false)
+            storage.setSource(unrelatedApp, false)
+            document.delete()
+        }
+    }
+
+    @Test
+    fun restoresAppAndChannelModesFromRuleVersions() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val storage = PushDatabase.open(context).storage
+        val transfer = RuleTransfer(context.contentResolver, storage)
+        val original = storage.rules().rulesJson
+        val name = "example.transfer.mode"
+        val modes = mapOf(ModeScope(name) to Action.HIDE, ModeScope(name, "orders") to Action.KEEP)
+        try {
+            val saved = requireNotNull(storage.replaceRules(storage.rules().version, RuleJson.encode(emptyList(), modes = modes)))
+            val snapshot = requireNotNull(saved.activeRevisionId)
+            assertNotNull(storage.replaceRules(saved.version, RuleJson.encode(emptyList())))
+
+            val preview = requireNotNull(transfer.prepareRestore(snapshot))
+            assertTrue(preview.modesChanged)
+            val restored = requireNotNull(transfer.applyImport(preview))
+            val settings = RuleJson.decodeStored(restored.rulesJson).modes
+            assertEquals(Action.HIDE, settings.unmatchedAction(name, "promos"))
+            assertEquals(Action.KEEP, settings.unmatchedAction(name, "orders"))
+        } finally {
+            storage.replaceRules(storage.rules().version, original)
         }
     }
 

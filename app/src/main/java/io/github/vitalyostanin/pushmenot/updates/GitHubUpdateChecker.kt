@@ -44,9 +44,17 @@ internal class GitHubUpdateChecker(
                     request.setRequestProperty("X-GitHub-Api-Version", "2026-03-10")
                     when (request.responseCode) {
                         HttpURLConnection.HTTP_OK -> {
-                            val response = request.inputStream.use { it.readNBytes(MAX_RESPONSE_BYTES + 1) }
-                            if (response.size > MAX_RESPONSE_BYTES) UpdateResult.Failed
-                            else decide(installed, JSONObject(response.toString(Charsets.UTF_8)))
+                            request.inputStream.buffered().use { input ->
+                                val bytes = ByteArray(MAX_RESPONSE_BYTES)
+                                var length = 0
+                                while (length < bytes.size) {
+                                    val count = input.read(bytes, length, bytes.size - length)
+                                    if (count == -1) break
+                                    length += count
+                                }
+                                if (length == bytes.size && input.read() != -1) UpdateResult.Failed
+                                else decide(installed, JSONObject(String(bytes, 0, length, Charsets.UTF_8)))
+                            }
                         }
                         HttpURLConnection.HTTP_NOT_FOUND -> UpdateResult.NoPublishedRelease
                         else -> UpdateResult.Failed

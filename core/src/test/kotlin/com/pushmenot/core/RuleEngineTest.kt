@@ -8,6 +8,18 @@ import org.junit.Test
 
 class RuleEngineTest {
     @Test
+    fun unmatchedHidePreservesExplicitKeepAndUnreadableNotifications() {
+        val event = card().copy(title = "Order ready")
+        val keep = FilterRule("pickup", 1, SHOP, Action.KEEP, title = TextCondition("Order ready"))
+        assertEquals(DecisionReason.UNMATCHED_MODE,
+            RuleEngine.evaluate(event, emptyList(), unmatched = Action.HIDE).decision.reason)
+        assertEquals(Action.KEEP,
+            RuleEngine.evaluate(event, listOf(keep), unmatched = Action.HIDE).decision.action)
+        assertEquals(Action.KEEP,
+            RuleEngine.evaluate(event.copy(contentAvailable = false), emptyList(), unmatched = Action.HIDE).decision.action)
+    }
+
+    @Test
     fun appliesOnlyToMatchingScopeAndText() {
         val rule = FilterRule(
             "promotion",
@@ -70,6 +82,23 @@ class RuleEngineTest {
         assertEquals(Action.KEEP, decision.action)
         assertEquals(DecisionReason.CONTENT_UNAVAILABLE, decision.reason)
         assertNull(decision.ruleScope)
+    }
+
+    @Test
+    fun assessmentUsesCurrentRulesWithoutInventingFrequencyHistory() {
+        val event = card().copy(title = "Promotion")
+        val hide = hide("promotion").copy(title = TextCondition("Promotion"))
+        val keep = hide.copy(id = "exception", packageName = null, action = Action.KEEP)
+        val frequency = hide.copy(id = "limit", frequency = FrequencyCondition(1, 60_000, FrequencyGroup.APP))
+
+        assertEquals(DecisionReason.NO_MATCH, RuleEngine.assessWithoutFrequencyHistory(event, emptyList())?.reason)
+        assertEquals(hide.version, RuleEngine.assessWithoutFrequencyHistory(event, listOf(hide))?.rule)
+        assertEquals(keep.version, RuleEngine.assessWithoutFrequencyHistory(event, listOf(frequency, hide, keep))?.rule)
+        assertNull(RuleEngine.assessWithoutFrequencyHistory(event, listOf(frequency, hide)))
+        assertEquals(hide.version, RuleEngine.assessWithoutFrequencyHistory(event, listOf(hide, frequency))?.rule)
+        assertEquals(DecisionReason.NO_MATCH, RuleEngine.assessWithoutFrequencyHistory(
+            event.copy(title = "Order ready"), listOf(frequency),
+        )?.reason)
     }
 
     @Test

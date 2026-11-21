@@ -39,6 +39,15 @@
                 <data android:scheme="content" android:host="*" android:pathSuffix=".pushmenot" android:mimeType="*/*" />
             </intent-filter>
         </activity>
+        <provider
+            android:name=".transfer.RuleShareProvider"
+            android:authorities="${applicationId}.shared-rules"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/shared_rule_paths" />
+        </provider>
         <receiver
             android:name=".updates.UpdateInstallReceiver"
             android:exported="false" />

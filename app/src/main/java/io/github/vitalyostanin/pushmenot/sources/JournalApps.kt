@@ -14,10 +14,11 @@ internal class JournalApps(private val packages: PackageManager, private val ico
 
     fun cached(packageName: String): JournalApp? = cache.get(packageName)
 
+    @Suppress("DEPRECATION")
     suspend fun load(packageName: String): JournalApp = withContext(Dispatchers.IO) {
         cache.get(packageName)?.let { return@withContext it }
         val info = try {
-            packages.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))
+            packages.getApplicationInfo(packageName, 0)
         } catch (_: PackageManager.NameNotFoundException) {
             return@withContext JournalApp(null, null)
         } catch (_: SecurityException) {

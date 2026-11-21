@@ -188,6 +188,23 @@ class PushStorage(private val database: PushDatabase) {
         limit = query.limit.coerceIn(1, MAX_PAGE_SIZE),
     )
 
+    internal suspend fun countHistoryExport(query: HistoryQuery): Int =
+        dao.countHistoryExport(requireNotNull(query.sinceMillis), requireNotNull(query.untilMillis), query.packageName)
+
+    internal suspend fun readHistoryExport(
+        query: HistoryQuery,
+        write: suspend (JournalItem, suspend () -> ByteArray?) -> Unit,
+    ) = database.withTransaction {
+        var cursor: HistoryCursor? = null
+        while (true) {
+            val page = historyPage(query.copy(before = cursor))
+            if (page.isEmpty()) break
+            for (entry in page) write(entry) { journalImage(entry.id) }
+            val last = page.last()
+            cursor = HistoryCursor(last.observedAtMillis, last.id)
+        }
+    }
+
     suspend fun historyPackages(): Set<String> = dao.historyPackages().toSet()
 
     private suspend fun journalSettings(): JournalSettings = dao.journalSettings() ?: JournalSettings()
@@ -240,6 +257,21 @@ class PushStorage(private val database: PushDatabase) {
         rulesJson: String,
         reason: RuleChange = RuleChange.MANUAL,
     ): RuleSet? = ruleHistory.replace(expectedVersion, rulesJson, reason)
+
+    internal suspend fun exportRuleSettings(): Pair<RuleSet, Set<String>> = database.withTransaction {
+        rules() to dao.enabledPackages().toSet()
+    }
+
+    internal suspend fun importRuleSettings(
+        expectedVersion: Long,
+        rulesJson: String,
+        reason: RuleChange,
+        enablePackages: Set<String>,
+    ): RuleSet? = database.withTransaction {
+        val result = replaceRules(expectedVersion, rulesJson, reason) ?: return@withTransaction null
+        for (packageName in enablePackages) setSource(packageName, true)
+        result
+    }
 
     suspend fun undoRules(expectedVersion: Long): RuleSet? = ruleHistory.undo(expectedVersion)
 

@@ -6,7 +6,7 @@ emulator_pid=$!
 trap 'kill "$emulator_pid" 2>/dev/null || true' EXIT
 export ANDROID_SERIAL=emulator-5554
 deadline=$((SECONDS + 240))
-echo "Waiting for Android 14 emulator boot"
+echo "Waiting for Android API ${1:-34} emulator boot"
 while [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != 1 ]]; do
     if ! kill -0 "$emulator_pid" 2>/dev/null || (( SECONDS >= deadline )); then
         cat /tmp/emulator.log >&2
@@ -15,6 +15,14 @@ while [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != 1
     sleep 2
 done
 
+actual_api="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+if [[ "$actual_api" != "${1:-34}" ]]; then
+    echo "Unexpected Android API: $actual_api (expected ${1:-34})" >&2
+    exit 1
+fi
+adb shell settings put global window_animation_scale 0
+adb shell settings put global transition_animation_scale 0
+adb shell settings put global animator_duration_scale 0
 echo "Android emulator booted after ${SECONDS}s; installing test APKs"
 if [[ -f upgrade-baseline.apk ]]; then
     package=io.github.vitalyostanin.pushmenot
@@ -36,6 +44,9 @@ adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb install fixture/build/outputs/apk/debug/fixture-debug.apk
 report=app/build/reports/androidTests/emulator.txt
 mkdir -p "$(dirname "$report")"
+# The container has no network. Disable Android's virtual radios so update checks fail
+# immediately rather than waiting for the emulator's unreachable DNS resolver.
+adb shell cmd connectivity airplane-mode enable
 echo "Running instrumentation tests"
 timeout 15m adb shell am instrument -w \
     io.github.vitalyostanin.pushmenot.test/androidx.test.runner.AndroidJUnitRunner | tee "$report"

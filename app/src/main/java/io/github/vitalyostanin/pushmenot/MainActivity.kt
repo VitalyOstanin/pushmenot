@@ -7,6 +7,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.BadParcelableException
+import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
@@ -17,11 +19,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import io.github.vitalyostanin.pushmenot.controller.AppController
 import io.github.vitalyostanin.pushmenot.listener.PushMeNotListenerService
 import io.github.vitalyostanin.pushmenot.sources.AndroidSources
 import io.github.vitalyostanin.pushmenot.shortcut.HistoryShortcut
 import io.github.vitalyostanin.pushmenot.shortcut.HistoryShortcutState
+import io.github.vitalyostanin.pushmenot.transfer.HistoryExportOptions
 import io.github.vitalyostanin.pushmenot.transfer.RuleArchive
 import io.github.vitalyostanin.pushmenot.transfer.RuleTransfer
 import io.github.vitalyostanin.pushmenot.transfer.externalRuleUri
@@ -29,8 +33,14 @@ import io.github.vitalyostanin.pushmenot.transfer.isRuleFileDelivery
 import io.github.vitalyostanin.pushmenot.ui.PushMeNotScreen
 import io.github.vitalyostanin.pushmenot.ui.ScreenCallbacks
 import io.github.vitalyostanin.pushmenot.updates.UpdateInstaller
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+
+private const val PENDING_HISTORY_EXPORT = "pending_history_export"
 
 class MainActivity : ComponentActivity() {
+    private var ruleShare: Job? = null
     private val historyShortcut by lazy { HistoryShortcut(this) }
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         controller.updateHistoryShortcut(historyShortcut.publish())
@@ -45,6 +55,10 @@ class MainActivity : ComponentActivity() {
         if (uri != null) controller.export(uri)
     }
 
+    private val exportHistoryDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
+        uri -> controller.completeHistoryExport(uri)
+    }
+
     private val openArchive = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) controller.prepareArchive(uri)
     }
@@ -54,7 +68,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setRecentsScreenshotEnabled(false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(false)
+        }
+        savedInstanceState?.getBundle(PENDING_HISTORY_EXPORT)?.let {
+            if (controller.pendingHistoryExport == null) {
+                controller.pendingHistoryExport = HistoryExportOptions.fromSavedState(it)
+            }
+        }
         if (savedInstanceState == null) handleLaunch(intent)
         val callbacks = ScreenCallbacks(
             openAccess = { openSystemSettings(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
@@ -66,7 +87,12 @@ class MainActivity : ComponentActivity() {
             openBatteryOptimizations = controller::openBatteryOptimizations,
             openBackgroundAppSettings = controller::openBackgroundAppSettings,
             openLanguageSettings = {
-                openSystemSettings(Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", packageName, null)))
+                val settings = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", packageName, null))
+                } else {
+                    Intent(Settings.ACTION_LOCALE_SETTINGS)
+                }
+                openSystemSettings(settings)
             },
             checkForUpdates = controller::checkForUpdates,
             openUpdateRelease = { release ->
@@ -94,6 +120,7 @@ class MainActivity : ComponentActivity() {
                 }
             },
             beginExport = { launchExternalActivity { exportDocument.launch(RuleTransfer.NAME) } },
+            shareRules = ::shareRules,
             beginArchiveOpen = {
                 launchExternalActivity { openArchive.launch(arrayOf(RuleArchive.MIME, "application/octet-stream", "text/plain")) }
             },
@@ -107,6 +134,15 @@ class MainActivity : ComponentActivity() {
             saveJournalCapacity = controller::saveJournalCapacity,
             dismissMessage = controller::dismissMessage,
             previewRule = controller::previewRule,
+            unmatchedModeSample = controller::unmatchedModeSample,
+            saveUnmatchedMode = controller::saveUnmatchedMode,
+            countHistoryExport = controller::countHistoryExport,
+            exportHistory = { options ->
+                controller.pendingHistoryExport = options
+                if (!launchExternalActivity { exportHistoryDocument.launch("push-me-not-history.json") }) {
+                    controller.pendingHistoryExport = null
+                }
+            },
         )
         setContent {
             val state by controller.state.collectAsState()
@@ -135,6 +171,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        controller.pendingHistoryExport?.let {
+            outState.putBundle(PENDING_HISTORY_EXPORT, it.toSavedState())
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -150,11 +193,20 @@ class MainActivity : ComponentActivity() {
         when {
             intent.action == HistoryShortcut.ACTION -> controller.openHistoryFromShortcut()
             intent.isRuleFileDelivery() -> {
-                val uri = intent.externalRuleUri(packageName)
-                val canRead = uri != null && checkUriPermission(
-                    uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                ) == PackageManager.PERMISSION_GRANTED
-                if (canRead) controller.prepareImport(checkNotNull(uri))
+                val uri = try {
+                    intent.externalRuleUri(packageName)?.takeIf {
+                        checkUriPermission(
+                            it, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                        ) == PackageManager.PERMISSION_GRANTED
+                    }
+                } catch (_: BadParcelableException) {
+                    null
+                } catch (_: IllegalArgumentException) {
+                    null
+                } catch (_: SecurityException) {
+                    null
+                }
+                if (uri != null) controller.prepareImport(uri)
                 else controller.reportImportFailure()
             }
         }
@@ -164,7 +216,9 @@ class MainActivity : ComponentActivity() {
         when (historyShortcut.status()) {
             HistoryShortcutState.PERMISSION_OFF -> {
                 val askedBefore = getPreferences(MODE_PRIVATE).getBoolean("askedForNotifications", false)
-                if (!askedBefore || shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    (!askedBefore || shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))
+                ) {
                     getPreferences(MODE_PRIVATE).edit().putBoolean("askedForNotifications", true).apply()
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
@@ -174,6 +228,20 @@ class MainActivity : ComponentActivity() {
             HistoryShortcutState.CHANNEL_OFF -> openSystemSettings(historyShortcut.systemSettings(channel = true))
             HistoryShortcutState.NOT_SHOWN -> controller.updateHistoryShortcut(historyShortcut.publish())
             HistoryShortcutState.SHOWN -> Unit
+        }
+    }
+
+    private fun shareRules() {
+        if (ruleShare?.isActive == true) return
+        ruleShare = lifecycleScope.launch {
+            try {
+                val send = controller.prepareRulesShare()
+                launchExternalActivity { startActivity(Intent.createChooser(send, null)) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                controller.reportFailure()
+            }
         }
     }
 

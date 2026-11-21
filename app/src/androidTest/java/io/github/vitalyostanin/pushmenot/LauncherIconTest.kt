@@ -3,6 +3,7 @@ package io.github.vitalyostanin.pushmenot
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.AdaptiveIconDrawable
+import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertNotNull
@@ -17,7 +18,9 @@ class LauncherIconTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val icon = context.applicationInfo.loadIcon(context.packageManager)
         assertTrue(icon is AdaptiveIconDrawable)
-        assertNotNull((icon as AdaptiveIconDrawable).monochrome)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            assertNotNull((icon as AdaptiveIconDrawable).monochrome)
+        }
         val bitmap = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
         try {
             icon.setBounds(0, 0, 48, 48)

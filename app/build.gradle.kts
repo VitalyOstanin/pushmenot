@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "io.github.vitalyostanin.pushmenot"
-        minSdk = 34
+        minSdk = 31
         targetSdk = 36
         versionCode = 11
         versionName = "0.2.9"

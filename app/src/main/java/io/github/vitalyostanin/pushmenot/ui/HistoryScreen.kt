@@ -1,6 +1,8 @@
 package io.github.vitalyostanin.pushmenot.ui
 
+import android.content.ActivityNotFoundException
 import android.service.notification.NotificationListenerService
+import androidx.annotation.StringRes
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,10 +38,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pushmenot.core.Action
+import com.pushmenot.core.DecisionReason
 import com.pushmenot.core.FilterRule
+import com.pushmenot.core.NotificationEvent
 import com.pushmenot.core.Protection
+import com.pushmenot.core.RuleEngine
 import io.github.vitalyostanin.pushmenot.R
+import io.github.vitalyostanin.pushmenot.listener.JournalDestinations
 import io.github.vitalyostanin.pushmenot.listener.ShadeCard
+import io.github.vitalyostanin.pushmenot.rules.ModeScope
+import io.github.vitalyostanin.pushmenot.rules.unmatchedAction
 import io.github.vitalyostanin.pushmenot.sources.JournalApps
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.SourceSettings
@@ -73,6 +81,9 @@ internal fun HistoryScreen(
     val observeShade = !focused && !isFiltered && packages.isEmpty() &&
         state.foreground && state.accessGranted && state.listenerConnected
     val journalApps = rememberJournalApps(state.foreground)
+    val selectedPackages = remember(state.sources) {
+        state.sources.filter(SourceSettings::enabled).mapTo(mutableSetOf(), SourceSettings::packageName)
+    }
     var shade by remember(observeShade) { mutableStateOf<List<ShadeCard>?>(null) }
     LaunchedEffect(observeShade, callbacks) {
         if (observeShade) callbacks.observeShade().collect { shade = it }
@@ -145,14 +156,18 @@ internal fun HistoryScreen(
                 }
             }
             items(state.history, key = JournalItem::id) { entry ->
-                val currentRule = state.rules.firstOrNull {
+                val recordedRule = state.rules.firstOrNull {
                     it.id == entry.ruleId && it.revision == entry.ruleRevision
+                }
+                val assessment = remember(entry, selectedPackages, state.rules, state.modes) {
+                    assessCurrentRules(entry, selectedPackages, state.rules, state.modes)
                 }
                 HistoryRecord(
                     entry,
                     journalApps,
                     entry.packageName?.let(labels::get),
-                    currentRule,
+                    recordedRule,
+                    assessment,
                     openSource,
                     showRule,
                     createFromEntry,
@@ -309,18 +324,57 @@ private fun JournalChannelName(name: String?) {
 }
 
 @Composable
-private fun JournalChannelDetails(name: String?, id: String?) {
-    if (id.isNullOrBlank()) return
+private fun JournalChannelDetails(name: String?, id: String?, actions: (@Composable () -> Unit)? = null) {
+    if (id.isNullOrBlank() && actions == null) return
     var expanded by rememberSaveable(id) { mutableStateOf(false) }
-    TextButton(onClick = { expanded = !expanded }) {
+    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("notification_details")) {
         Text(stringResource(if (expanded) R.string.hide_notification_details else R.string.show_notification_details))
     }
     if (expanded) {
-        Help(stringResource(R.string.android_channel_name))
-        Text(name ?: stringResource(R.string.android_channel_name_unavailable))
-        Help(stringResource(R.string.channel_field))
-        Text(id)
+        if (!id.isNullOrBlank()) {
+            Help(stringResource(R.string.android_channel_name))
+            Text(name ?: stringResource(R.string.android_channel_name_unavailable))
+            Help(stringResource(R.string.channel_field))
+            Text(id)
+        }
+        actions?.invoke()
     }
+}
+
+private data class CurrentRuleAssessment(@StringRes val label: Int, val ruleId: String? = null)
+
+private fun assessCurrentRules(
+    entry: JournalItem,
+    selectedPackages: Set<String>,
+    rules: List<FilterRule>,
+    modes: Map<ModeScope, Action>,
+): CurrentRuleAssessment? {
+    if (entry.kind != JournalItem.KIND_NOTIFICATION) return null
+    if (entry.protection != null) return CurrentRuleAssessment(R.string.history_current_protected)
+    val packageName = entry.packageName ?: return CurrentRuleAssessment(R.string.history_current_unavailable)
+    if (packageName !in selectedPackages) return CurrentRuleAssessment(R.string.history_current_disabled)
+    val event = NotificationEvent(
+        profileId = entry.profileId.orEmpty(),
+        packageName = packageName,
+        elapsedMillis = 0,
+        channelId = entry.channelId,
+        title = entry.title,
+        body = entry.body,
+        sender = entry.sender,
+        senderKey = entry.senderKey,
+        countAsNew = false,
+        contentAvailable = entry.contentAvailable && entry.contentRetained,
+    )
+    val decision = RuleEngine.assessWithoutFrequencyHistory(event, rules, modes.unmatchedAction(packageName, entry.channelId))
+        ?: return CurrentRuleAssessment(R.string.history_current_frequency)
+    val label = when (decision.reason) {
+        DecisionReason.RULE_MATCH -> if (decision.action == Action.HIDE) R.string.history_current_hide else R.string.history_current_keep
+        DecisionReason.UNMATCHED_MODE -> R.string.history_current_hide_unmatched
+        DecisionReason.NO_MATCH -> R.string.history_current_no_match
+        DecisionReason.PROTECTED -> R.string.history_current_protected
+        DecisionReason.CONTENT_UNAVAILABLE -> R.string.history_current_unavailable
+    }
+    return CurrentRuleAssessment(label, decision.rule?.id)
 }
 
 @Composable
@@ -328,7 +382,8 @@ private fun HistoryRecord(
     entry: JournalItem,
     journalApps: JournalApps,
     label: String?,
-    currentRule: FilterRule?,
+    recordedRule: FilterRule?,
+    assessment: CurrentRuleAssessment?,
     openSource: (String) -> Unit,
     showRule: (String) -> Unit,
     createRule: (JournalItem) -> Unit,
@@ -361,19 +416,32 @@ private fun HistoryRecord(
             entry.removedAtMillis != null && entry.removalReason == NotificationListenerService.REASON_LISTENER_CANCEL
         val status = when (entry.verdict) {
             null -> R.string.not_filtered
-            Action.HIDE.name -> if (hiddenByRule) R.string.hidden_by_rule else R.string.hide_decision
+            Action.HIDE.name -> when {
+                !hiddenByRule -> R.string.hide_decision
+                entry.decisionReason == DecisionReason.UNMATCHED_MODE.name -> R.string.history_hidden_unmatched
+                else -> R.string.hidden_by_rule
+            }
             else -> R.string.kept
         }
         Text(
-            stringResource(status),
-            color = when (status) {
-                R.string.kept -> accent
-                R.string.not_filtered -> secondaryInk
-                else -> Color(0xff79480c)
-            },
-            fontWeight = FontWeight.SemiBold,
+            stringResource(
+                if (entry.countAsNew) R.string.history_received_decision else R.string.history_recorded_decision,
+                stringResource(status),
+            ),
+            color = secondaryInk,
             fontSize = 14.sp,
         )
+        assessment?.let {
+            val color = when (it.label) {
+                R.string.history_current_hide -> Color(0xff79480c)
+                R.string.history_current_keep, R.string.history_current_no_match -> accent
+                else -> secondaryInk
+            }
+            Text(stringResource(it.label), color = color, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            if (it.ruleId != null && it.ruleId != recordedRule?.id) {
+                ActionButton(R.string.history_view_current_rule, { showRule(it.ruleId) }, primary = false)
+            }
+        }
         entry.removedAtMillis?.let { removedAt ->
             val removed = when (entry.removalReason) {
                 NotificationListenerService.REASON_CANCEL,
@@ -391,8 +459,8 @@ private fun HistoryRecord(
                 } else {
                     Help(stringResource(R.string.matched_rule, entry.ruleId))
                 }
-                if (currentRule != null) {
-                    ActionButton(R.string.view_rule, { showRule(currentRule.id) }, primary = false)
+                if (recordedRule != null) {
+                    ActionButton(R.string.view_rule, { showRule(recordedRule.id) }, primary = false)
                 } else {
                     Help(stringResource(R.string.rule_revision_unavailable))
                 }
@@ -405,7 +473,36 @@ private fun HistoryRecord(
         if (entry.packageName != null) {
             ActionButton(R.string.create_from_entry, { createRule(entry) }, primary = false, tag = "entry_new_rule")
         }
-        JournalChannelDetails(entry.channelName, entry.channelId)
+        val actions: (@Composable () -> Unit)? = if (packageName == null) null else {
+            { JournalDestination(entry.id, packageName) }
+        }
+        JournalChannelDetails(entry.channelName, entry.channelId, actions)
+    }
+}
+
+@Composable
+private fun JournalDestination(id: Long, packageName: String) {
+    val context = LocalContext.current
+    val launch = remember(packageName, context) {
+        context.packageManager.getLaunchIntentForPackage(packageName)
+    }
+    var launchFailed by remember(id) { mutableStateOf(false) }
+    if (JournalDestinations.available(id)) {
+        ActionButton(R.string.open_notification_target, { JournalDestinations.open(context, id) },
+            tag = "open_notification_target")
+    } else if (launch != null && !launchFailed) {
+        Help(stringResource(R.string.notification_target_app_fallback))
+        ActionButton(R.string.open_notification_app, {
+            try {
+                context.startActivity(launch)
+            } catch (_: ActivityNotFoundException) {
+                launchFailed = true
+            } catch (_: SecurityException) {
+                launchFailed = true
+            }
+        }, primary = false, tag = "open_notification_app")
+    } else {
+        Help(stringResource(R.string.notification_target_unavailable))
     }
 }
 

@@ -2,6 +2,7 @@ package io.github.vitalyostanin.pushmenot.storage
 
 import androidx.room.withTransaction
 import com.pushmenot.core.FilterRule
+import io.github.vitalyostanin.pushmenot.rules.RuleDocument
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -24,14 +25,14 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
         database.withTransaction {
             val current = dao.rules() ?: RuleSet()
             if (current.version != expectedVersion) return@withTransaction null
-            commit(current, RuleJson.decode(json), reason)
+            commit(current, RuleJson.decodeStored(json), reason)
         }
 
     internal suspend fun undo(expectedVersion: Long): RuleSet? = database.withTransaction {
         val current = dao.rules() ?: return@withTransaction null
         val previous = current.previousRulesJson ?: return@withTransaction null
         if (current.version != expectedVersion) return@withTransaction null
-        commit(current, RuleJson.decode(previous), RuleChange.RESTORE)
+        commit(current, RuleJson.decodeStored(previous), RuleChange.RESTORE)
     }
 
     internal suspend fun isMissing(incoming: RuleSnapshot): Boolean {
@@ -50,7 +51,7 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
         val active = readActive { snapshot ->
             if (isMissing(snapshot)) dao.insertSnapshot(snapshot)
         }
-        commit(anchored, RuleJson.decode(active.rulesJson), RuleChange.ARCHIVE)
+        commit(anchored, RuleJson.decodeStored(active.rulesJson), RuleChange.ARCHIVE)
     }
 
     internal suspend fun writeArchive(
@@ -74,15 +75,16 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
     private suspend fun ensureBaseline(): RuleSet {
         val head = dao.rules() ?: RuleSet()
         if (head.activeRevisionId != null) return head
-        val snapshot = createSnapshot(RuleJson.decode(head.rulesJson), RuleChange.BASELINE)
+        val snapshot = createSnapshot(RuleJson.decodeStored(head.rulesJson), RuleChange.BASELINE)
         dao.insertSnapshot(snapshot)
         return head.copy(activeRevisionId = snapshot.revisionId).also { dao.saveRules(it) }
     }
 
-    private suspend fun commit(current: RuleSet, next: List<FilterRule>, reason: RuleChange): RuleSet {
-        val old = RuleJson.decode(current.rulesJson)
+    private suspend fun commit(current: RuleSet, next: RuleDocument, reason: RuleChange): RuleSet {
+        val before = RuleJson.decodeStored(current.rulesJson)
+        val old = before.rules
         val previousById = old.associateBy(FilterRule::id)
-        val stable = next.map { requested ->
+        val stable = next.rules.map { requested ->
             val before = previousById[requested.id]
             if (before != null && requested.copy(revision = before.revision) == before) {
                 before
@@ -94,10 +96,10 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
                 requested.copy(revision = revision)
             }
         }
-        if (old == stable) return current
+        if (old == stable && before.modes == next.modes) return current
         check(current.version < Long.MAX_VALUE)
         ensureBaseline()
-        val snapshot = createSnapshot(stable, reason)
+        val snapshot = createSnapshot(next.copy(rules = stable), reason)
         dao.insertSnapshot(snapshot)
         val updated = RuleSet(
             version = current.version + 1,
@@ -126,11 +128,11 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
         if (encoded == null) dao.clearFrequency() else dao.saveFrequency(FrequencySnapshot(encoded))
     }
 
-    private fun createSnapshot(rules: List<FilterRule>, reason: RuleChange) = RuleSnapshot(
+    private fun createSnapshot(document: RuleDocument, reason: RuleChange) = RuleSnapshot(
         revisionId = UUID.randomUUID().toString(),
         createdAtMillis = System.currentTimeMillis(),
         reason = reason.name,
-        count = rules.size,
-        rulesJson = RuleJson.encode(rules),
+        count = document.rules.size,
+        rulesJson = RuleJson.encode(document.rules, modes = document.modes),
     )
 }
