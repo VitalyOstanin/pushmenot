@@ -113,6 +113,7 @@ figcaption { margin-top: 10px; color: var(--muted); font-size: .875rem; }
 .notice.shortcut { background: var(--highlight); }
 .shop-icon { color: #46354a; background: #e8ddf0; }
 .rec-icon { color: #5b3a22; background: #f9e5cf; }
+.bank-icon { color: #29405e; background: #d8e7fa; }
 
 .feature, .install, .features {
   align-items: center;
