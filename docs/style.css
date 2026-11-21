@@ -1,0 +1,80 @@
+:root {
+  color-scheme: light dark;
+  --ink: #192824;
+  --muted: #435b51;
+  --green: #225d45;
+  --on-green: #fff;
+  --bg: #fafcfb;
+  --line: #b5cbc0;
+  --shade: #dfe9e4;
+  --card: #fafcfb;
+  --shortcut: #e5f3e9;
+  --icon-shop: #e8ddf0;
+  --icon-offer: #f9e5cf;
+  --icon-ink: #46354a;
+  --yellow: #f5ce53;
+  font: 16px/1.45 system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #eef6ef;
+    --muted: #bad0c3;
+    --green: #afe1c3;
+    --on-green: #162e23;
+    --bg: #14231c;
+    --line: #526c5e;
+    --shade: #1d3027;
+    --card: #293e34;
+    --shortcut: #304d3d;
+    --icon-shop: #cabbda;
+    --icon-offer: #e9c8a6;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); }
+.wrap { width: min(100% - 36px, 1000px); margin-inline: auto; }
+header { border-bottom: 1px solid var(--line); }
+header .wrap { min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.brand { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font-weight: 750; text-decoration: none; }
+nav { display: flex; gap: 16px; }
+a { color: var(--green); text-underline-offset: 3px; }
+a:focus-visible { outline: 3px solid var(--yellow); outline-offset: 4px; }
+.intro { padding-block: 28px 24px; }
+h1 { max-width: 23ch; margin: 0 0 8px; font-size: clamp(30px, 5vw, 57px); line-height: 1.06; letter-spacing: -.045em; text-wrap: balance; }
+.intro p { margin: 0 0 12px; color: var(--muted); }
+.cta { display: inline-block; border-radius: 12px; padding: 10px 15px; background: var(--green); color: var(--on-green); font-weight: 700; text-decoration: none; }
+.intro small { display: inline-block; margin: 6px 0 0 8px; color: var(--muted); }
+figure { margin: 0; }
+.comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.shot { display: grid; grid-template-rows: auto 1fr; }
+.shot h2 { font-size: 1.1rem; margin: 0 0 7px 3px; }
+.shade { display: flex; flex-direction: column; gap: 6px; min-height: 357px; padding: 13px; border: 1px solid var(--line); border-radius: 24px; background: var(--shade); }
+.shade-bar { display: flex; justify-content: space-between; font-weight: 700; padding: 0 3px; }
+.shade-label { color: var(--muted); font-size: .8rem; padding-inline: 3px; }
+.notice { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 8px; padding: 7px 9px; background: var(--card); border-radius: 13px; }
+.notice.shortcut { background: var(--shortcut); }
+.notice span, .notice strong { display: block; overflow-wrap: anywhere; }
+.notice .source { font-size: .72rem; color: var(--muted); }
+.notice strong { font-size: .9rem; }
+.notice .message { font-size: .78rem; }
+.icon { width: 28px; height: 28px; display: grid; place-items: center; margin-top: 2px; background: var(--icon-shop); color: var(--icon-ink); border-radius: 9px; font-weight: 800; font-size: .8rem; }
+.icon.offer { background: var(--icon-offer); }
+.sun-icon { background: #225d45; }
+.sun { width: 20px; height: 20px; background: var(--yellow); clip-path: polygon(50% 0,62% 24%,81% 12%,80% 34%,100% 36%,86% 50%,100% 65%,80% 67%,81% 88%,62% 76%,50% 100%,38% 76%,19% 88%,20% 67%,0 65%,14% 50%,0 36%,20% 34%,19% 12%,38% 24%); }
+figcaption { margin-top: 9px; color: var(--muted); }
+footer { margin-top: 20px; padding: 14px 0 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: .84rem; }
+@media (max-width: 480px) {
+  .wrap { width: calc(100% - 22px); }
+  .comparison { gap: 8px; }
+  .shade { min-height: 0; padding: 6px; border-radius: 17px; }
+  .notice { grid-template-columns: minmax(0, 1fr); padding: 6px; }
+  .notice .icon { display: none; }
+  .shot h2 { font-size: .98rem; }
+  .intro small { margin-left: 0; display: block; }
+}
+
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 26px; }
+.facts article { border-top: 1px solid var(--line); padding-top: 12px; }
+.facts h2 { font-size: 1rem; margin: 0 0 4px; }
+.facts p { color: var(--muted); margin: 0; }
+@media (max-width: 620px) { .facts { grid-template-columns: 1fr; } }
