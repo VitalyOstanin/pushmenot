@@ -1,5 +1,6 @@
 package io.github.vitalyostanin.pushmenot.sources
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -38,7 +39,8 @@ class AndroidSources(private val context: Context) {
 
     private fun openSettings(intent: Intent): Boolean {
         return try {
-            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
             true
         } catch (_: ActivityNotFoundException) {
             false

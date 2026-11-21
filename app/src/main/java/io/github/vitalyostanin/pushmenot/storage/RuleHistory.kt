@@ -1,6 +1,5 @@
 package io.github.vitalyostanin.pushmenot.storage
 
-import androidx.room.withTransaction
 import com.pushmenot.core.FilterRule
 import io.github.vitalyostanin.pushmenot.rules.RuleDocument
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
@@ -15,23 +14,23 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
     private val dao = database.data()
 
     fun observeVersions(): Flow<List<RuleVersionSummary>> = flow {
-        database.withTransaction { ensureBaseline() }
+        database.writeTransaction { ensureBaseline() }
         emitAll(dao.observeRuleHistory())
     }
 
     suspend fun snapshot(id: String): RuleSnapshot? = dao.snapshot(id)
 
     internal suspend fun replace(expectedVersion: Long, json: String, reason: RuleChange): RuleSet? =
-        database.withTransaction {
+        database.writeTransaction {
             val current = dao.rules() ?: RuleSet()
-            if (current.version != expectedVersion) return@withTransaction null
+            if (current.version != expectedVersion) return@writeTransaction null
             commit(current, RuleJson.decodeStored(json), reason)
         }
 
-    internal suspend fun undo(expectedVersion: Long): RuleSet? = database.withTransaction {
-        val current = dao.rules() ?: return@withTransaction null
-        val previous = current.previousRulesJson ?: return@withTransaction null
-        if (current.version != expectedVersion) return@withTransaction null
+    internal suspend fun undo(expectedVersion: Long): RuleSet? = database.writeTransaction {
+        val current = dao.rules() ?: return@writeTransaction null
+        val previous = current.previousRulesJson ?: return@writeTransaction null
+        if (current.version != expectedVersion) return@writeTransaction null
         commit(current, RuleJson.decodeStored(previous), RuleChange.RESTORE)
     }
 
@@ -44,9 +43,9 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
     internal suspend fun restoreArchive(
         expectedVersion: Long,
         readActive: suspend (suspend (RuleSnapshot) -> Unit) -> RuleSnapshot,
-    ): RuleSet? = database.withTransaction {
+    ): RuleSet? = database.writeTransaction {
         val current = dao.rules() ?: RuleSet()
-        if (current.version != expectedVersion) return@withTransaction null
+        if (current.version != expectedVersion) return@writeTransaction null
         val anchored = ensureBaseline()
         val active = readActive { snapshot ->
             if (isMissing(snapshot)) dao.insertSnapshot(snapshot)
@@ -58,7 +57,7 @@ class RuleHistory internal constructor(private val database: PushDatabase) {
         start: suspend (String) -> Unit,
         writeVersion: (RuleSnapshot) -> Unit,
     ) {
-        val (activeId, through) = database.withTransaction {
+        val (activeId, through) = database.writeTransaction {
             checkNotNull(ensureBaseline().activeRevisionId) to dao.latestSnapshotSequence()
         }
         // Snapshots are immutable. New versions can be written while the export is streamed.

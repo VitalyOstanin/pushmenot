@@ -9,7 +9,10 @@ RUN apt-get update \
 
 ENV PATH="/opt/android-sdk/emulator:${PATH}"
 ENV ANDROID_AVD_HOME=/avd
+RUN sdkmanager --install "emulator"
+
 ARG ANDROID_API=34
-RUN system_image="system-images;android-${ANDROID_API};google_apis;x86_64" \
-    && sdkmanager --install "emulator" "$system_image" \
+ARG ANDROID_IMAGE_TAG=google_apis
+RUN system_image="system-images;android-${ANDROID_API};${ANDROID_IMAGE_TAG};x86_64" \
+    && sdkmanager --install "$system_image" \
     && echo no | avdmanager create avd -n pushmenot -k "$system_image" -d pixel_6

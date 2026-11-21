@@ -2,6 +2,9 @@ package io.github.vitalyostanin.pushmenot.transfer
 
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
+import android.util.Base64
+import android.util.JsonReader
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -10,6 +13,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.room.Room
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -17,7 +24,16 @@ import io.github.vitalyostanin.pushmenot.MainActivity
 import io.github.vitalyostanin.pushmenot.R
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.PushDatabase
+import io.github.vitalyostanin.pushmenot.storage.PushStorage
+import io.github.vitalyostanin.pushmenot.storage.writeTransaction
 import java.io.File
+import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -122,6 +138,102 @@ class HistoryExportTest {
             assertFalse(withContent.has("channelId"))
         } finally {
             database.close()
+            file.delete()
+        }
+    }
+
+    @Test
+    fun exportsFullJournalWithImagesWhileReceivingANotification(): Unit = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File.createTempFile("history-load-test", ".json", context.cacheDir)
+        val exportStarted = CompletableDeferred<Unit>()
+        val appendFinished = CountDownLatch(1)
+        val name = "history-load-${UUID.randomUUID()}.db"
+        val driver = BundledSQLiteDriver()
+        val observingDriver = object : SQLiteDriver by driver {
+            override fun open(fileName: String): SQLiteConnection {
+                val connection = driver.open(fileName)
+                return object : SQLiteConnection by connection {
+                    override fun prepare(sql: String): SQLiteStatement {
+                        val statement = connection.prepare(sql)
+                        if (!sql.contains("ORDER BY observedAtMillis DESC, id DESC")) return statement
+                        return object : SQLiteStatement by statement {
+                            override fun step(): Boolean = statement.step().also { hasRow ->
+                                if (hasRow && exportStarted.complete(Unit)) {
+                                    check(appendFinished.await(10, TimeUnit.SECONDS)) { "Export blocked the writer" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val database = PushDatabase.builder(context, name).setDriver(observingDriver).build()
+        try {
+            val storage = database.storage
+            val exporter = HistoryExport(context.contentResolver, context.cacheDir, storage)
+            val now = System.currentTimeMillis()
+            val entry = JournalItem(now, packageName = "example.export", title = "Synthetic notice")
+            val revision = storage.contentRevision()
+            val image = ByteArray(PushStorage.MAX_MEDIA_BYTES) { 42 }
+            val expectedImage = Base64.encodeToString(image, Base64.NO_WRAP)
+            val entries = 10_000
+            val images = 2_048
+            database.writeTransaction {
+                repeat(entries) { index ->
+                    storage.appendNotification(entry, revision, image.takeIf { index >= entries - images })
+                }
+            }
+
+            val options = HistoryExportOptions(null, 1, titles = true, text = true, images = true, untilMillis = now)
+            val start = SystemClock.elapsedRealtime()
+            val export = async(Dispatchers.IO) { exporter.write(Uri.fromFile(file), options) }
+            withTimeout(30_000) { exportStarted.await() }
+            val writeStart = SystemClock.elapsedRealtime()
+            val writeMillis = try {
+                storage.appendNotification(entry.copy(observedAtMillis = now + 1, title = "Concurrent"), revision)
+                SystemClock.elapsedRealtime() - writeStart
+            } finally {
+                appendFinished.countDown()
+            }
+            export.await()
+            val durationMillis = SystemClock.elapsedRealtime() - start
+            InstrumentationRegistry.getInstrumentation().sendStatus(2, Bundle().apply {
+                putString("stream", "\nHISTORY_EXPORT_SAMPLE entries=$entries images=$images " +
+                    "exportMs=$durationMillis appendMs=$writeMillis bytes=${file.length()}\n")
+            })
+
+            var entryCount = 0
+            var imageCount = 0
+            JsonReader(file.reader()).use { json ->
+                json.beginObject()
+                assertEquals("version", json.nextName())
+                assertEquals(1, json.nextInt())
+                assertEquals("entries", json.nextName())
+                json.beginArray()
+                while (json.hasNext()) {
+                    json.beginObject()
+                    while (json.hasNext()) {
+                        when (json.nextName()) {
+                            "title" -> assertEquals("Synthetic notice", json.nextString())
+                            "imageBase64" -> {
+                                assertEquals(expectedImage, json.nextString())
+                                imageCount++
+                            }
+                            else -> json.skipValue()
+                        }
+                    }
+                    json.endObject()
+                    entryCount++
+                }
+                json.endArray()
+                json.endObject()
+            }
+            assertEquals(entries, entryCount)
+            assertEquals(images, imageCount)
+        } finally {
+            database.close()
+            context.deleteDatabase(name)
             file.delete()
         }
     }

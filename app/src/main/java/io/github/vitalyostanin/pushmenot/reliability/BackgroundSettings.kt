@@ -1,6 +1,7 @@
 package io.github.vitalyostanin.pushmenot.reliability
 
 import android.app.ActivityManager
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -34,7 +35,8 @@ class BackgroundSettings(private val context: Context) {
     )
 
     private fun open(intent: Intent): Boolean = try {
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
         true
     } catch (_: ActivityNotFoundException) {
         false

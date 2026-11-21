@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -73,6 +74,7 @@ internal fun HistoryScreen(
 ) {
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     var choosingApps by rememberSaveable { mutableStateOf(false) }
+    val listState = rememberLazyListState()
     val packages = filters.packageNames
     val onlyApp = packages.singleOrNull()
     val appLabel = onlyApp?.let { labels[it] ?: it }
@@ -99,6 +101,7 @@ internal fun HistoryScreen(
         ScreenHeader(title, onBack.takeIf { focused })
         LazyColumn(
             modifier = Modifier.testTag("history_list"),
+            state = listState,
             contentPadding = screenPadding,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -134,7 +137,15 @@ internal fun HistoryScreen(
                         filters.verdict?.let { stringResource(if (it == Action.KEEP.name) R.string.keep_action else R.string.hide_action) },
                     )
                     if (active.isNotEmpty()) Help(active.joinToString(" · "))
-                    ActionButton(R.string.reset_filters, reset, primary = false, tag = "history_reset")
+                    ActionButton(
+                        R.string.reset_filters,
+                        onClick = {
+                            listState.requestScrollToItem(0)
+                            reset()
+                        },
+                        primary = false,
+                        tag = "history_reset",
+                    )
                 }
             }
             item {

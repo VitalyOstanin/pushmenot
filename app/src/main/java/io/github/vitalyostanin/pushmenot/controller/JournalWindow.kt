@@ -1,11 +1,11 @@
 package io.github.vitalyostanin.pushmenot.controller
 
-import androidx.room.withTransaction
 import io.github.vitalyostanin.pushmenot.storage.HistoryCursor
 import io.github.vitalyostanin.pushmenot.storage.HistoryQuery
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.PushDatabase
 import io.github.vitalyostanin.pushmenot.storage.includes
+import io.github.vitalyostanin.pushmenot.storage.writeTransaction
 
 internal data class JournalWindow(
     val query: HistoryQuery,
@@ -22,7 +22,7 @@ internal data class JournalWindow(
             query: HistoryQuery,
             previous: JournalWindow?,
             size: Int,
-        ): JournalWindow = database.withTransaction {
+        ): JournalWindow = database.writeTransaction {
             val storage = database.storage
             val previousSince = previous?.query?.sinceMillis ?: Long.MIN_VALUE
             val since = query.sinceMillis ?: Long.MIN_VALUE

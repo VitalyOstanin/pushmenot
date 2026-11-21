@@ -25,7 +25,7 @@ Use a graphite interface that follows the system light or dark theme. Make filte
 | 6   | Headers and selection     | `#DFE4FA`              | `#363E60`              |
 | 7   | Warning background        | `#FFF0D7`              | `#50391F`              |
 | 8   | Warning text              | `#5C3B16`              | `#FFDFAA`              |
-| 9   | Keyboard focus            | `#F0B429`              | `#F0B429`              |
+| 9   | Focus on outlined buttons | `#414A85`              | `#B5BFF8`              |
 | 10  | Hidden entry and label    | `#FFF0F1` / `#8A3444`  | `#39272F` / `#FFC1CB`  |
 | 11  | Allowed entry and label   | `#E8F5EC` / `#21573B`  | `#23352E` / `#B6E4C6`  |
 
@@ -44,6 +44,8 @@ Keep one clear screen title. Place a relevant warning before the content it qual
 ## States and accessibility
 
 Use distinct labels for permission, filtering, text retention, rule decisions, and the removal observed by Android. A return from system settings does not confirm a permission change. Show a gap in history explicitly and indicate when rule preview is incomplete.
+
+On filled buttons, use the label color for the focus border so it contrasts with the button fill. On outlined buttons, use the primary action color for the focus border.
 
 Give buttons and switches accessible names. Expose switch state to assistive technology and provide a visible keyboard focus indicator. Verify screen-reader navigation, system font scaling, and contrast in the Android implementation.
 

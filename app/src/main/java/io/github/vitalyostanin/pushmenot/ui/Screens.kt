@@ -2,14 +2,8 @@ package io.github.vitalyostanin.pushmenot.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -19,18 +13,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,22 +28,16 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.pushmenot.core.Action
 import com.pushmenot.core.FilterRule
 import io.github.vitalyostanin.pushmenot.R
@@ -66,13 +46,10 @@ import io.github.vitalyostanin.pushmenot.preview.RulePreview
 import kotlinx.coroutines.flow.Flow
 import io.github.vitalyostanin.pushmenot.rules.ModeScope
 import io.github.vitalyostanin.pushmenot.rules.RuleJson
-import io.github.vitalyostanin.pushmenot.storage.NotificationStatistics
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.SourceSettings
 import io.github.vitalyostanin.pushmenot.transfer.ImportMode
 import io.github.vitalyostanin.pushmenot.transfer.HistoryExportOptions
-import io.github.vitalyostanin.pushmenot.transfer.ImportPreview
-import io.github.vitalyostanin.pushmenot.transfer.RuleTransfer
 import io.github.vitalyostanin.pushmenot.updates.UpdateResult
 
 data class ScreenCallbacks(
@@ -131,11 +108,6 @@ private enum class Section(val title: Int, val tag: String) {
     RULES(R.string.rules, "rules_tab"),
     SETTINGS(R.string.settings, "settings_tab"),
 }
-
-private val focus = Color(0xfff0b429)
-private val cardShape = RoundedCornerShape(14.dp)
-internal val buttonShape = RoundedCornerShape(12.dp)
-internal val screenPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
 
 private enum class Destination(val section: Section) {
     HISTORY(Section.HISTORY),
@@ -502,489 +474,4 @@ private fun Navigation(active: Section, select: (Section) -> Unit) {
             }
         }
     }
-}
-
-@Composable
-internal fun ScreenHeader(
-    title: String,
-    onBack: (() -> Unit)? = null,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-        Column {
-            if (onBack != null) TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    title,
-                    Modifier.weight(1f).padding(vertical = 20.dp),
-                    fontSize = 22.sp,
-                    lineHeight = 28.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                action?.invoke()
-            }
-        }
-    }
-}
-
-@Composable
-private fun AccessScreen(statistics: NotificationStatistics?, open: () -> Unit) {
-    Column {
-        ScreenHeader(stringResource(R.string.access_title))
-        Column(Modifier.padding(screenPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            statistics?.let { JournalStatistics(it) }
-            Notice(R.string.access_off, warning = true) { Help(stringResource(R.string.access_description)) }
-            ActionButton(R.string.settings, onClick = open, tag = "access_settings")
-        }
-    }
-}
-
-@Composable
-private fun SelectedAppsScreen(
-    settings: Map<String, SourceSettings>,
-    labels: Map<String, String>,
-    installed: Set<String>,
-    add: () -> Unit,
-    open: (String) -> Unit,
-) {
-    val packages = settings.values.filter(SourceSettings::enabled).map(SourceSettings::packageName)
-        .sortedBy { labels[it] ?: it }
-    Column {
-        ScreenHeader(stringResource(R.string.apps))
-        LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Title(stringResource(R.string.selected_app)) }
-            item { ActionButton(R.string.add_app, add, tag = "add_app") }
-            if (packages.isEmpty()) item { Help(stringResource(R.string.no_selected_apps)) }
-            items(packages, key = { it }) { packageName ->
-                SourceRow(packageName, labels, installed, open)
-            }
-        }
-    }
-}
-
-@Composable
-private fun SourceRow(
-    packageName: String,
-    labels: Map<String, String>,
-    installed: Set<String>,
-    open: (String) -> Unit,
-) {
-    val label = labels[packageName] ?: packageName
-    Panel(Modifier.testTag("source_row_$packageName").clickable { open(packageName) }) {
-        Title(label)
-        if (packageName !in installed) Help(stringResource(R.string.app_not_installed))
-        if (labels.values.count { it == label } > 1) Help(packageName)
-    }
-}
-
-@Composable
-private fun SourceDetail(
-    packageName: String,
-    label: String,
-    settings: SourceSettings?,
-    openSettings: () -> Unit,
-    openHistory: () -> Unit,
-    openRules: () -> Unit,
-    onBack: () -> Unit,
-) {
-    Column {
-        ScreenHeader(label, onBack)
-        LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
-                Help(packageName)
-                Help(stringResource(if (settings?.enabled == true) R.string.selected_app else R.string.filtering_off))
-            }
-            item { ActionButton(R.string.app_history, openHistory, primary = false, tag = "app_history") }
-            item { ActionButton(R.string.app_rules, openRules, primary = false, tag = "app_rules") }
-            item { ActionButton(R.string.filtering_settings, openSettings, primary = false, tag = "filtering_settings") }
-        }
-    }
-}
-
-@Composable
-internal fun TogglePanel(title: Int, description: Int, checked: Boolean, tag: String, toggle: (Boolean) -> Unit) {
-    val label = stringResource(title)
-    Panel {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Title(label)
-                Help(stringResource(description))
-            }
-            Switch(
-                checked = checked,
-                onCheckedChange = toggle,
-                modifier = Modifier.testTag(tag).semantics { contentDescription = label },
-            )
-        }
-    }
-}
-
-@Composable
-private fun RulesScreen(
-    rules: List<FilterRule>,
-    labels: Map<String, String>,
-    settings: Map<String, SourceSettings>,
-    installed: Set<String>,
-    canUndo: Boolean,
-    versions: () -> Unit,
-    help: () -> Unit,
-    globals: () -> Unit,
-    appRules: (String) -> Unit,
-    callbacks: ScreenCallbacks,
-) {
-    var exportOpen by rememberSaveable { mutableStateOf(false) }
-    val packages = (
-        settings.values.filter(SourceSettings::enabled).map(SourceSettings::packageName) +
-            rules.mapNotNull(FilterRule::packageName)
-        ).distinct().sortedBy { labels[it] ?: it }
-    Column {
-        ScreenHeader(stringResource(R.string.rules), action = {
-            TextButton(onClick = help, modifier = Modifier.testTag("rules_help")) {
-                Text(stringResource(R.string.rules_help))
-            }
-        })
-        LazyColumn(
-            modifier = Modifier.testTag("rules_list"),
-            contentPadding = screenPadding,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item { ActionButton(R.string.global_rules, globals, primary = false, tag = "global_rules") }
-            item { Title(stringResource(R.string.rules_by_app)) }
-            if (packages.isEmpty()) item { Help(stringResource(R.string.no_app_rules_sources)) }
-            items(packages, key = { it }) { packageName ->
-                val label = labels[packageName] ?: packageName
-                Panel(Modifier.clickable { appRules(packageName) }.testTag("rules_source_$packageName")) {
-                    Title(label)
-                    if (labels.values.count { it == label } > 1) Help(packageName)
-                    if (packageName !in installed) Help(stringResource(R.string.app_not_installed))
-                    if (settings[packageName]?.enabled != true) Help(stringResource(R.string.filtering_off))
-                }
-            }
-            item { ActionButton(R.string.rule_version_history, versions, primary = false, tag = "rule_versions") }
-            item { ActionButton(R.string.import_rules, callbacks.beginImport, primary = false, tag = "rule_import") }
-            item { ActionButton(R.string.export_rules, { exportOpen = true }, primary = false, tag = "rule_export") }
-            if (canUndo) item { ActionButton(R.string.undo_rules, callbacks.undoImport, primary = false) }
-            item { Help(stringResource(R.string.rule_files_explanation)) }
-        }
-    }
-    if (exportOpen) {
-        Dialog(onDismissRequest = { exportOpen = false }) {
-            Panel {
-                Title(stringResource(R.string.export_rules_title))
-                Text(RuleTransfer.NAME, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(R.string.export_rules_contents))
-                ActionButton(R.string.export_rules_share, {
-                    exportOpen = false
-                    callbacks.shareRules()
-                }, tag = "rule_export_share")
-                ActionButton(R.string.export_rules_save, {
-                    exportOpen = false
-                    callbacks.beginExport()
-                }, primary = false, tag = "rule_export_save")
-                ActionButton(R.string.cancel, { exportOpen = false }, primary = false, tag = "rule_export_cancel")
-            }
-        }
-    }
-}
-
-@Composable
-private fun RulesHelpScreen(back: () -> Unit) {
-    Column {
-        ScreenHeader(stringResource(R.string.rules_help_title), back)
-        LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
-                Panel {
-                    Title(stringResource(R.string.rules_help_applies))
-                    Text(stringResource(R.string.rules_help_applies_body))
-                }
-            }
-            item {
-                Panel {
-                    Title(stringResource(R.string.rules_help_priority))
-                    listOf(
-                        R.string.rules_help_app_keep,
-                        R.string.rules_help_global_keep,
-                        R.string.rules_help_app_hide,
-                        R.string.rules_help_global_hide,
-                    ).forEachIndexed { index, label ->
-                        Text(stringResource(R.string.rules_help_priority_item, index + 1, stringResource(label)))
-                    }
-                    Help(stringResource(R.string.rules_help_ties))
-                }
-            }
-            item {
-                Panel {
-                    Title(stringResource(R.string.rules_help_example))
-                    Text(stringResource(R.string.rules_help_example_body))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ScopedRulesScreen(
-    packageName: String?,
-    rules: List<FilterRule>,
-    labels: Map<String, String>,
-    selectedPackages: Set<String>,
-    edit: (FilterRule) -> Unit,
-    openUnmatchedMode: () -> Unit,
-    create: (String?) -> Unit,
-    onBack: () -> Unit,
-) {
-    val globals = rules.filter { it.packageName == null }
-    val localRules = rules.filter { packageName != null && it.packageName == packageName }
-    val title = if (packageName == null) stringResource(R.string.global_rules) else {
-        stringResource(R.string.app_rules_title, labels[packageName] ?: packageName)
-    }
-    Column {
-        ScreenHeader(title, onBack)
-        LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (packageName != null) {
-                item { ActionButton(R.string.unmatched_title, openUnmatchedMode, primary = false, tag = "unmatched_mode") }
-                item { Title(stringResource(R.string.app_rules)) }
-                item { ActionButton(R.string.new_rule, { create(packageName) }, tag = "rule_new") }
-                if (localRules.isEmpty()) item { Help(stringResource(R.string.no_rules)) }
-                items(localRules, key = FilterRule::id) { RuleRow(it, edit) }
-                item { Title(stringResource(R.string.global_rules)) }
-                item {
-                    Help(stringResource(
-                        if (packageName in selectedPackages) R.string.global_scope_help
-                        else R.string.global_rules_when_filtering,
-                    ))
-                }
-                if (globals.isEmpty()) {
-                    item {
-                        Help(stringResource(R.string.no_rules))
-                        ActionButton(R.string.new_global_rule, { create(null) }, primary = false)
-                    }
-                }
-            } else {
-                item { Help(stringResource(R.string.global_scope_help)) }
-                item { ActionButton(R.string.new_rule, { create(null) }, tag = "rule_new") }
-                if (globals.isEmpty()) item { Help(stringResource(R.string.no_rules)) }
-            }
-            items(globals, key = FilterRule::id) { RuleRow(it, edit) }
-        }
-    }
-}
-
-@Composable
-private fun RuleRow(rule: FilterRule, edit: (FilterRule) -> Unit) {
-    Panel(Modifier.clickable { edit(rule) }) {
-        RuleSummary(rule)
-        if (!rule.enabled) Help(stringResource(R.string.rule_disabled))
-    }
-}
-
-@Composable
-private fun ImportScreen(
-    preview: ImportPreview,
-    labels: Map<String, String>,
-    enabledApps: Set<String>,
-    confirm: (ImportMode, Boolean) -> Unit,
-    cancel: () -> Unit,
-) {
-    var mode by remember(preview) { mutableStateOf(ImportMode.APPEND) }
-    val append = mode == ImportMode.APPEND
-    val packages = preview.enabledApps ?: preview.legacyApps
-    val legacy = preview.enabledApps == null
-    var importApps by remember(preview) { mutableStateOf(!legacy) }
-    val willEnableApps = importApps && packages.any { it !in enabledApps }
-    Column {
-        ScreenHeader(stringResource(R.string.review_import))
-        LazyColumn(
-            modifier = Modifier.testTag("import_preview_list"),
-            contentPadding = screenPadding,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item {
-                Panel {
-                    Title(stringResource(R.string.import_mode))
-                    Column(Modifier.selectableGroup()) {
-                        ImportChoice(R.string.import_append_mode, R.string.import_append_help,
-                            append, "import_mode_append") { mode = ImportMode.APPEND }
-                        ImportChoice(R.string.import_replace_mode, R.string.import_replace_help,
-                            !append, "import_mode_replace") { mode = ImportMode.REPLACE }
-                    }
-                }
-            }
-            item {
-                Panel {
-                    Text(stringResource(R.string.import_add, if (append) preview.appendedIds.size else preview.addedIds.size))
-                    if (append) {
-                        Text(stringResource(R.string.import_skipped, preview.skippedCount))
-                        if (preview.appendedModes > 0) Help(stringResource(R.string.import_append_modes, preview.appendedModes))
-                        if (!preview.appendFits) Help(stringResource(R.string.import_append_limit))
-                        else if (!preview.canAppend) Help(stringResource(R.string.import_no_new))
-                    } else {
-                        RuleDifference(preview, labels)
-                    }
-                }
-            }
-            if (packages.isNotEmpty()) {
-                item {
-                    Panel {
-                        Title(stringResource(if (legacy) R.string.import_legacy_apps else R.string.import_file_apps))
-                        if (legacy) Help(stringResource(R.string.import_legacy_apps_help))
-                        Row(
-                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .toggleable(importApps, role = Role.Checkbox, onValueChange = { importApps = it }),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Checkbox(checked = importApps, onCheckedChange = null)
-                            Text(stringResource(if (legacy) R.string.import_enable_legacy_apps else R.string.import_enable_apps))
-                        }
-                    }
-                }
-                if (importApps) {
-                    items(packages.sorted()) { packageName ->
-                        Panel {
-                            Text(labels[packageName] ?: packageName)
-                            Help(stringResource(when {
-                                packageName !in labels -> R.string.import_app_pending_install
-                                packageName in enabledApps -> R.string.import_app_already_enabled
-                                else -> R.string.import_app_will_enable
-                            }))
-                        }
-                    }
-                }
-            }
-            item { Help(stringResource(R.string.import_active_review_help)) }
-            item {
-                ActionButton(
-                    if (append) R.string.append_rules else R.string.replace_rules,
-                    { confirm(mode, importApps) },
-                    enabled = !append || (preview.appendFits && (preview.canAppend || willEnableApps)),
-                    tag = if (append) "rule_append" else "rule_replace",
-                )
-            }
-            item { ActionButton(R.string.cancel, cancel, primary = false) }
-        }
-    }
-}
-
-@Composable
-private fun ImportChoice(title: Int, help: Int, checked: Boolean, tag: String, select: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag)
-            .selectable(checked, role = Role.RadioButton, onClick = select),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        RadioButton(selected = checked, onClick = null)
-        Column {
-            Text(stringResource(title), fontWeight = FontWeight.SemiBold)
-            Help(stringResource(help))
-        }
-    }
-}
-
-@Composable
-internal fun RuleDifference(preview: ImportPreview, labels: Map<String, String>) {
-    Text(stringResource(R.string.import_update, preview.changedIds.size))
-    if (preview.modesChanged) Help(stringResource(R.string.import_replace_modes))
-    Text(stringResource(R.string.import_remove, preview.removedIds.size))
-    if (preview.orderChanged) Help(stringResource(R.string.import_order))
-    if (preview.scopeChangedIds.isNotEmpty()) Help(stringResource(R.string.import_scope_changes, preview.scopeChangedIds.size))
-    if (preview.allSelectedAppsAffected) Help(stringResource(R.string.import_global_impact))
-    if (preview.affectedPackageNames.isNotEmpty()) {
-        val apps = preview.affectedPackageNames.map { labels[it] ?: it }.sorted()
-        Help(stringResource(R.string.import_local_impact, apps.joinToString(", ")))
-    }
-}
-
-@Composable
-internal fun Panel(
-    modifier: Modifier = Modifier,
-    warning: Boolean = false,
-    containerColor: Color = MaterialTheme.colorScheme.surface,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        modifier.fillMaxWidth(),
-        shape = cardShape,
-        color = if (warning) colors.tertiaryContainer else containerColor,
-        contentColor = if (warning) colors.onTertiaryContainer else colors.onSurface,
-        border = BorderStroke(1.dp, colors.outlineVariant),
-    ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
-    }
-}
-
-@Composable
-internal fun Notice(title: Int, warning: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        Modifier.fillMaxWidth(),
-        shape = cardShape,
-        color = if (warning) colors.tertiaryContainer else colors.secondaryContainer,
-        border = BorderStroke(1.dp, colors.outlineVariant),
-    ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Title(stringResource(title))
-            content()
-        }
-    }
-}
-
-@Composable
-internal fun ActionButton(
-    label: Int,
-    onClick: () -> Unit,
-    primary: Boolean = true,
-    enabled: Boolean = true,
-    tag: String? = null,
-) {
-    var focused by remember { mutableStateOf(false) }
-    val size = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-    val modifier = if (tag == null) size else size.testTag(tag)
-    val text: @Composable () -> Unit = { Text(stringResource(label), fontWeight = FontWeight.SemiBold) }
-    if (primary) {
-        Button(
-            onClick = onClick,
-            modifier = modifier.onFocusChanged { focused = it.isFocused },
-            enabled = enabled,
-            shape = buttonShape,
-            border = if (focused) BorderStroke(2.dp, focus) else null,
-            content = { text() },
-        )
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier.onFocusChanged { focused = it.isFocused },
-            enabled = enabled,
-            shape = buttonShape,
-            border = BorderStroke(if (focused) 2.dp else 1.dp, if (focused) focus else MaterialTheme.colorScheme.outline),
-            content = { text() },
-        )
-    }
-}
-
-@Composable
-internal fun Confirmation(title: Int, message: Int, confirmLabel: Int, confirm: () -> Unit, cancel: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = cancel,
-        title = { Text(stringResource(title)) },
-        text = { Text(stringResource(message)) },
-        confirmButton = { TextButton(onClick = confirm) { Text(stringResource(confirmLabel)) } },
-        dismissButton = { TextButton(onClick = cancel) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
-@Composable
-internal fun Title(label: String) {
-    Text(label, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
-}
-
-@Composable
-internal fun Help(label: String) {
-    Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 20.sp)
 }

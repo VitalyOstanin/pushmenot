@@ -1,7 +1,11 @@
 package io.github.vitalyostanin.pushmenot.transfer
 
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.graphics.Rect
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -50,14 +54,22 @@ class RuleShareTest {
 
                 compose.onNodeWithTag("rule_export").performClick()
                 compose.onNodeWithTag("rule_export_share").performClick()
-                clickSystemText("Rule file test receiver")
+                clickSystemText(
+                    "Rule file test receiver", alternateLabel = "Push Me Not Test Publisher", scroll = true,
+                )
                 clickSystemText("Open received rules", beforeClick = {
                     assertNotNull(storage.replaceRules(storage.rules().version, RuleJson.encode(emptyList())))
                     storage.setSource(packageName, false)
                 })
 
-                compose.waitUntil(20_000) {
-                    compose.onAllNodesWithTag("import_preview_list").fetchSemanticsNodes().isNotEmpty()
+                try {
+                    compose.waitUntil(20_000) {
+                        compose.onAllNodesWithTag("import_preview_list")
+                            .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+                    }
+                } catch (error: ComposeTimeoutException) {
+                    shell("screencap -p /data/local/tmp/pushmenot-e2e-share.png")
+                    throw error
                 }
                 compose.onNodeWithTag("import_preview_list").performScrollToNode(hasTestTag("rule_append"))
                 compose.onNodeWithTag("rule_append").performClick()
@@ -82,21 +94,67 @@ class RuleShareTest {
         performClick()
     }
 
-    private suspend fun clickSystemText(label: String, beforeClick: suspend () -> Unit = {}) {
+    private suspend fun clickSystemText(
+        label: String,
+        alternateLabel: String? = null,
+        scroll: Boolean = false,
+        beforeClick: suspend () -> Unit = {},
+    ) {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val configuration = automation.serviceInfo
+        configuration.flags = configuration.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        automation.serviceInfo = configuration
         val deadline = SystemClock.elapsedRealtime() + 20_000
+        var root: AccessibilityNodeInfo? = null
         while (SystemClock.elapsedRealtime() < deadline) {
-            val node = automation.rootInActiveWindow?.findAccessibilityNodeInfosByText(label)
-                ?.firstOrNull { it.text?.toString() == label || it.contentDescription?.toString() == label }
-            if (node != null) {
-                beforeClick()
-                var button: AccessibilityNodeInfo? = node
-                while (button != null && !button.isClickable) button = button.parent
-                check(button?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) { "Cannot click $label" }
-                return
+            root = automation.rootInActiveWindow ?: automation.windows.firstNotNullOfOrNull {
+                if (it.isActive || it.isFocused) it.root else null
             }
-            kotlinx.coroutines.delay(100)
+            val node = listOfNotNull(label, alternateLabel).firstNotNullOfOrNull { name ->
+                root?.findAccessibilityNodeInfosByText(name)?.firstOrNull {
+                    it.isVisibleToUser && it.isEnabled &&
+                        (it.text?.toString()?.equals(name, ignoreCase = true) == true ||
+                            it.contentDescription?.contains(name, ignoreCase = true) == true)
+                }
+            }
+            if (node != null) {
+                val bounds = Rect().also(node::getBoundsInScreen)
+                if (!bounds.isEmpty) {
+                    beforeClick()
+                    val target = generateSequence(node) { it.parent }.firstOrNull {
+                        it.isClickable && it.isEnabled
+                    }
+                    if (target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) != true) {
+                        shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+                    }
+                    return
+                }
+            } else if (scroll && root != null) {
+                scrollSystemWindow(root)
+            }
+            kotlinx.coroutines.delay(150)
         }
-        throw AssertionError("Not visible: $label")
+        val visible = mutableListOf<String>()
+        fun capture(node: AccessibilityNodeInfo) {
+            if (visible.size >= 30) return
+            (node.text ?: node.contentDescription ?: node.viewIdResourceName)?.let { visible += it.toString() }
+            for (index in 0 until node.childCount) node.getChild(index)?.let(::capture)
+        }
+        root?.let(::capture)
+        shell("screencap -p /data/local/tmp/pushmenot-e2e-share.png")
+        throw AssertionError("Could not click $label in ${root?.packageName}. Visible labels: $visible")
+    }
+
+    private fun scrollSystemWindow(node: AccessibilityNodeInfo): Boolean {
+        if (node.isScrollable && node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) return true
+        for (index in 0 until node.childCount) {
+            if (node.getChild(index)?.let(::scrollSystemWindow) == true) return true
+        }
+        return false
+    }
+
+    private fun shell(command: String) {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes() }
     }
 }

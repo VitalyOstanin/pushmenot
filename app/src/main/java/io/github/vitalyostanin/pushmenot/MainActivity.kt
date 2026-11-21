@@ -84,8 +84,8 @@ class MainActivity : ComponentActivity() {
                     controller.reportFailure()
                 }
             },
-            openBatteryOptimizations = controller::openBatteryOptimizations,
-            openBackgroundAppSettings = controller::openBackgroundAppSettings,
+            openBatteryOptimizations = { controller.openBatteryOptimizations(this) },
+            openBackgroundAppSettings = { controller.openBackgroundAppSettings(this) },
             openLanguageSettings = {
                 val settings = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", packageName, null))

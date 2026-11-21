@@ -115,9 +115,12 @@ From a workstation with Podman and an x86-64 Linux host, run:
 
 - `tools/build.sh` to build the debug APK.
 - `tools/test.sh` to run JVM tests.
-- `tools/e2e.sh` to build the app and run instrumentation tests on an isolated
-  Android 14 emulator. Use `tools/e2e.sh 31` for Android 12 or
-  `tools/e2e.sh 33` for Android 13. Emulator runs require access to `/dev/kvm`.
+- `tools/e2e.sh [api-level|all]` to build the app and run instrumentation tests
+  in an isolated emulator. The default is Android 14 (API 34). Android 12,
+  12L, 13, 14, 15, 16, and 17 use API levels 31 through 37 respectively.
+  Use `all` or a comma-separated list such as `35,36,37` to check the same
+  APK on multiple versions. A second argument can select a test class or a
+  `class#method` for reproduction. Emulator runs require access to `/dev/kvm`.
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The emulator report is written to `app/build/reports/androidTests/emulator.txt`.
 
@@ -128,5 +131,7 @@ See the [ADR index](docs/ADR/README.md) for proposed architectural decisions.
 CI uses a pinned checkout and Java setup, Gradle dependency verification, and
 builds with the Gradle task cache disabled. A version tag matching the app
 version builds and signs a release APK, verifies the signing certificate, and
-uploads it with its checksum to a draft GitHub Release. Publish the draft after
-testing the signed APK. Continue using the same signing key for updates.
+uploads it with its checksum to a draft GitHub Release. Before publishing,
+resolve any known test failures, pass the full test suite on Android 12
+through 17, and verify that the signed APK upgrades the previous release
+without data loss. Continue using the same signing key for updates.

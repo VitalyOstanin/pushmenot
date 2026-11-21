@@ -12,8 +12,8 @@ android {
         applicationId = "io.github.vitalyostanin.pushmenot"
         minSdk = 31
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.2.9"
+        versionCode = 12
+        versionName = "0.2.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -27,6 +27,11 @@ android {
     }
 }
 
+configurations.matching { it.name.startsWith("ksp") && it.name.endsWith("ProcessorClasspath") }
+    .configureEach {
+        resolutionStrategy.force("com.google.guava:guava:33.7.2-jre")
+    }
+
 dependencies {
     implementation(project(":core"))
     implementation(platform("androidx.compose:compose-bom:2025.09.00"))
@@ -35,14 +40,21 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.sqlite:sqlite-bundled:2.6.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     ksp("androidx.room:room-compiler:2.8.5")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.09.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
 
 ksp {
     arg("room.schemaLocation", file("schemas").absolutePath)
+}
+
+// Both variants export the same Room schema files.
+tasks.matching { it.name == "kspReleaseKotlin" }.configureEach {
+    mustRunAfter("kspDebugKotlin")
 }

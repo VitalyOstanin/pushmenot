@@ -5,7 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
+import io.github.vitalyostanin.pushmenot.R
 
 private val lightGraphite = lightColorScheme(
     primary = Color(0xff414a85),
@@ -15,13 +18,11 @@ private val lightGraphite = lightColorScheme(
     secondary = Color(0xff535970),
     secondaryContainer = Color(0xffdfe4fa),
     onSecondaryContainer = Color(0xff202333),
-    background = Color(0xfff7f8fc),
     onBackground = Color(0xff202333),
     surface = Color.White,
     onSurface = Color(0xff202333),
     surfaceVariant = Color(0xffe9ecf6),
     onSurfaceVariant = Color(0xff535970),
-    surfaceContainerLow = Color(0xfff7f8fc),
     surfaceContainerHigh = Color(0xffe9ecf6),
     outline = Color(0xff6b7294),
     outlineVariant = Color(0xffc4cadd),
@@ -35,13 +36,11 @@ private val lightGraphite = lightColorScheme(
 
 private val darkGraphite = darkColorScheme(
     primary = Color(0xffb5bff8),
-    onPrimary = Color(0xff171923),
     primaryContainer = Color(0xff363e60),
     onPrimaryContainer = Color(0xfff0f1fa),
     secondary = Color(0xffb9bfd1),
     secondaryContainer = Color(0xff363e60),
     onSecondaryContainer = Color(0xfff0f1fa),
-    background = Color(0xff171923),
     onBackground = Color(0xfff0f1fa),
     surface = Color(0xff252936),
     onSurface = Color(0xfff0f1fa),
@@ -70,8 +69,14 @@ internal fun keptJournalColors(): KeptJournalColors =
 
 @Composable
 internal fun GraphiteTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) darkGraphite else lightGraphite,
-        content = content,
-    )
+    val window = colorResource(R.color.graphite_window)
+    val dark = isSystemInDarkTheme()
+    val colors = remember(dark, window) {
+        if (dark) {
+            darkGraphite.copy(background = window, onPrimary = window)
+        } else {
+            lightGraphite.copy(background = window, surfaceContainerLow = window)
+        }
+    }
+    MaterialTheme(colorScheme = colors, content = content)
 }

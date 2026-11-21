@@ -73,7 +73,7 @@ internal class HistoryExport(
         try {
             JsonWriter(temporary.bufferedWriter(Charsets.UTF_8)).use { writer ->
                 writer.beginObject().name("version").value(1L).name("entries").beginArray()
-                storage.readHistoryExport(options.query()) { entry, readImage ->
+                storage.readHistoryExport(options.query(), options.images) { entry, image ->
                     writer.beginObject()
                     writer.name("app").value(entry.packageName)
                     writer.name("receivedHourUtcMillis").value(Math.floorDiv(entry.observedAtMillis, 3_600_000L) * 3_600_000L)
@@ -91,10 +91,7 @@ internal class HistoryExport(
                         writer.name("text").value(HistoryExportRedaction.text(entry.body))
                         writer.name("additionalText").value(HistoryExportRedaction.text(entry.archivedText))
                     }
-                    if (options.images) {
-                        val image = readImage()
-                        if (image != null) writer.name("imageBase64").value(Base64.encodeToString(image, Base64.NO_WRAP))
-                    }
+                    if (image != null) writer.name("imageBase64").value(Base64.encodeToString(image, Base64.NO_WRAP))
                     writer.endObject()
                 }
                 writer.endArray().endObject()

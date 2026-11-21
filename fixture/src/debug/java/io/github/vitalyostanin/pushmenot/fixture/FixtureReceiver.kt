@@ -14,6 +14,7 @@ import android.net.Uri
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.TextView
 import java.util.Base64
 
@@ -22,6 +23,17 @@ class FixtureActivity : Activity() {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("notification_target", false)) {
             setContentView(TextView(this).apply { text = "Opened the original notification target" })
+            return
+        }
+        val settingsPackage = intent.getStringExtra("notification_settings_package")
+        if (settingsPackage != null) {
+            // Keep Settings in this task so Android 12L does not launch its two-pane trampoline.
+            if (savedInstanceState == null) {
+                startActivityForResult(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, settingsPackage),
+                    NOTIFICATION_SETTINGS_REQUEST,
+                )
+            }
             return
         }
         val delivery = intent.getStringExtra("rule_delivery")
@@ -40,6 +52,15 @@ class FixtureActivity : Activity() {
             startActivity(request)
         }
         finish()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == NOTIFICATION_SETTINGS_REQUEST) finish()
+    }
+
+    private companion object {
+        const val NOTIFICATION_SETTINGS_REQUEST = 1
     }
 }
 

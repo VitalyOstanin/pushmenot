@@ -5,7 +5,6 @@ import android.os.Process
 import android.os.SystemClock
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import androidx.room.withTransaction
 import com.pushmenot.core.Action
 import com.pushmenot.core.NotificationEvent
 import com.pushmenot.core.RuleEngine
@@ -17,6 +16,7 @@ import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.JournalSettings
 import io.github.vitalyostanin.pushmenot.storage.PushDatabase
 import io.github.vitalyostanin.pushmenot.storage.SourceSettings
+import io.github.vitalyostanin.pushmenot.storage.writeTransaction
 import java.lang.ref.WeakReference
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -354,7 +354,7 @@ class PushMeNotListenerService : NotificationListenerService() {
     }
 
     private suspend fun persistGap(gap: Reset) {
-        openGapId = database.withTransaction {
+        openGapId = database.writeTransaction {
             storage.clearFrequency()
             val previous = openGapId
             if (previous != null) {
@@ -422,14 +422,14 @@ class PushMeNotListenerService : NotificationListenerService() {
         )
     }
 
-    private suspend fun persistDecision(event: Posted, image: ByteArray?): Outcome? = database.withTransaction {
+    private suspend fun persistDecision(event: Posted, image: ByteArray?): Outcome? = database.writeTransaction {
         val card = event.snapshot
         val source = storage.source(card.packageName)
         val filter = source?.enabled == true && source.consentRevision == event.sourceRevision
         val ruleSet = if (filter) storage.rules() else null
         val notification = notificationEvent(event)
         val review = event.reviewVersion != null
-        if (review && ruleSet?.version != event.reviewVersion) return@withTransaction null
+        if (review && ruleSet?.version != event.reviewVersion) return@writeTransaction null
         val previous = if (ruleSet != null && !review) storage.frequency() else null
         val evaluation = if (ruleSet != null) {
             val document = RuleJson.decodeStored(ruleSet.rulesJson)
@@ -442,7 +442,7 @@ class PushMeNotListenerService : NotificationListenerService() {
             null
         }
         val decision = evaluation?.decision
-        if (review && decision?.action != Action.HIDE) return@withTransaction null
+        if (review && decision?.action != Action.HIDE) return@writeTransaction null
         val journalId = storage.appendNotification(
             JournalItem(
                 observedAtMillis = event.observedAtMillis,

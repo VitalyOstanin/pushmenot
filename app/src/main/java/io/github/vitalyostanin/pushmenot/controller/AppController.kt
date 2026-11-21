@@ -1,10 +1,10 @@
 package io.github.vitalyostanin.pushmenot.controller
 
+import android.app.Activity
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.room.withTransaction
 import com.pushmenot.core.Action
 import com.pushmenot.core.FilterRule
 import io.github.vitalyostanin.pushmenot.R
@@ -23,6 +23,7 @@ import io.github.vitalyostanin.pushmenot.storage.HistoryCursor
 import io.github.vitalyostanin.pushmenot.storage.HistoryQuery
 import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.PushDatabase
+import io.github.vitalyostanin.pushmenot.storage.writeTransaction
 import io.github.vitalyostanin.pushmenot.shortcut.HistoryShortcutState
 import io.github.vitalyostanin.pushmenot.transfer.HistoryExport
 import io.github.vitalyostanin.pushmenot.transfer.HistoryExportOptions
@@ -160,16 +161,16 @@ class AppController(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun openBatteryOptimizations() {
-        when (backgroundSettings.openBatteryOptimizations()) {
+    fun openBatteryOptimizations(activity: Activity) {
+        when (BackgroundSettings(activity).openBatteryOptimizations()) {
             BatterySettingsDestination.OPTIMIZATION_LIST -> Unit
             BatterySettingsDestination.APP_DETAILS -> showMessage(R.string.battery_optimization_settings_fallback)
             null -> reportFailure()
         }
     }
 
-    fun openBackgroundAppSettings() {
-        if (!backgroundSettings.openAppDetails()) reportFailure()
+    fun openBackgroundAppSettings(activity: Activity) {
+        if (!BackgroundSettings(activity).openAppDetails()) reportFailure()
     }
 
     fun updateSource(packageName: String, enabled: Boolean) {
@@ -231,7 +232,7 @@ class AppController(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun readHistory(query: HistoryQuery, limit: Int): List<JournalItem> =
-        database.withTransaction {
+        database.writeTransaction {
             val rows = mutableListOf<JournalItem>()
             var cursor: HistoryCursor? = null
             while (rows.size < limit) {
@@ -247,7 +248,7 @@ class AppController(application: Application) : AndroidViewModel(application) {
 
     fun saveRule(draft: FilterRule, enableSource: Boolean) {
         operation {
-            database.withTransaction { persistRule(draft, enableSource) }
+            database.writeTransaction { persistRule(draft, enableSource) }
             showMessage(R.string.rules_saved)
         }
     }

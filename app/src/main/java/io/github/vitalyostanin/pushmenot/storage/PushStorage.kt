@@ -1,6 +1,7 @@
 package io.github.vitalyostanin.pushmenot.storage
 
-import androidx.room.withTransaction
+import androidx.room.deferredTransaction
+import androidx.room.useReaderConnection
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
@@ -17,10 +18,10 @@ class PushStorage(private val database: PushDatabase) {
     fun observeSources(): Flow<List<SourceSettings>> = dao.observeSources()
 
     suspend fun setSource(packageName: String, enabled: Boolean): SourceSettings =
-        database.withTransaction {
+        database.writeTransaction {
             require(packageName.isNotBlank())
             val previous = dao.source(packageName)
-            if (previous != null && previous.enabled == enabled) return@withTransaction previous
+            if (previous != null && previous.enabled == enabled) return@writeTransaction previous
             val next = SourceSettings(
                 packageName = packageName,
                 enabled = enabled,
@@ -44,7 +45,7 @@ class PushStorage(private val database: PushDatabase) {
         item: JournalItem,
         retentionRevision: Long?,
         image: ByteArray? = null,
-    ): Long = database.withTransaction {
+    ): Long = database.writeTransaction {
         require(item.id == 0L && item.kind == JournalItem.KIND_NOTIFICATION)
         requireNotNull(item.packageName)
         require(image == null || image.size <= MAX_MEDIA_BYTES)
@@ -85,7 +86,7 @@ class PushStorage(private val database: PushDatabase) {
     }
 
     suspend fun appendGap(atMillis: Long, reason: String, endedAtMillis: Long? = null): Long =
-        database.withTransaction {
+        database.writeTransaction {
             require(endedAtMillis == null || endedAtMillis >= atMillis)
             val state = journalState()
             val id = dao.insertJournalItem(
@@ -117,18 +118,18 @@ class PushStorage(private val database: PushDatabase) {
         return true
     }
 
-    suspend fun closeGap(id: Long, atMillis: Long): Boolean = database.withTransaction {
+    suspend fun closeGap(id: Long, atMillis: Long): Boolean = database.writeTransaction {
         changeJournalRow { dao.closeGap(id, atMillis, it) }
     }
 
     suspend fun recordDismissalRequested(id: Long, atMillis: Long, lifecycleId: String? = null): Boolean =
-        database.withTransaction {
+        database.writeTransaction {
             lifecycleId?.let { dao.markCountDismissal(it) }
             changeJournalRow { dao.markDismissalRequested(id, atMillis, it) }
         }
 
     suspend fun recordRemoval(id: Long?, atMillis: Long, reason: Int, hiddenLifecycle: String? = null): Boolean =
-        database.withTransaction {
+        database.writeTransaction {
             hiddenLifecycle?.let { dao.markCountHidden(it) }
             id != null && changeJournalRow { dao.markRemoval(id, atMillis, reason, it) }
         }
@@ -139,7 +140,7 @@ class PushStorage(private val database: PushDatabase) {
     suspend fun notificationStatistics(
         now: Long = System.currentTimeMillis(),
         zone: ZoneId = ZoneId.systemDefault(),
-    ): NotificationStatistics = database.withTransaction {
+    ): NotificationStatistics = database.writeTransaction {
         dao.insertStatisticsStart(StatisticsStart(now))
         val day = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val week = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -159,15 +160,15 @@ class PushStorage(private val database: PushDatabase) {
 
     suspend fun historyRevision(): Long = journalState().revision
 
-    suspend fun historyDelta(previous: Long, query: HistoryQuery): JournalDelta = database.withTransaction {
+    suspend fun historyDelta(previous: Long, query: HistoryQuery): JournalDelta = database.writeTransaction {
         val state = journalState()
         val oldest = dao.oldestJournalId().takeIf { it != 0L }
         if (previous < state.resetRevision || previous > state.revision) {
-            return@withTransaction JournalDelta(state.revision, oldest, emptySet(), emptyList(), true)
+            return@writeTransaction JournalDelta(state.revision, oldest, emptySet(), emptyList(), true)
         }
         val ids = dao.journalChangedIds(previous, MAX_PAGE_SIZE + 1)
         if (ids.size > MAX_PAGE_SIZE) {
-            return@withTransaction JournalDelta(state.revision, oldest, emptySet(), emptyList(), true)
+            return@writeTransaction JournalDelta(state.revision, oldest, emptySet(), emptyList(), true)
         }
         val matching = if (ids.isEmpty()) emptyList() else dao.journalRowsById(ids).filter(query::includes)
         JournalDelta(state.revision, oldest, ids.toSet(), matching, false)
@@ -193,13 +194,30 @@ class PushStorage(private val database: PushDatabase) {
 
     internal suspend fun readHistoryExport(
         query: HistoryQuery,
-        write: suspend (JournalItem, suspend () -> ByteArray?) -> Unit,
-    ) = database.withTransaction {
+        includeImages: Boolean,
+        write: (JournalItem, ByteArray?) -> Unit,
+    ) {
+        // Keep each export consistent even when the journal is cleared or trimmed concurrently.
+        database.useReaderConnection { reader ->
+            reader.deferredTransaction { writeExportPages(query, includeImages, write) }
+        }
+    }
+
+    private suspend fun writeExportPages(
+        query: HistoryQuery,
+        includeImages: Boolean,
+        write: (JournalItem, ByteArray?) -> Unit,
+    ) {
         var cursor: HistoryCursor? = null
         while (true) {
             val page = historyPage(query.copy(before = cursor))
-            if (page.isEmpty()) break
-            for (entry in page) write(entry) { journalImage(entry.id) }
+            if (page.isEmpty()) return
+            val images = if (includeImages) {
+                dao.mediaForJournal(page.map(JournalItem::id)).associateBy(JournalMedia::journalId)
+            } else {
+                emptyMap()
+            }
+            for (entry in page) write(entry, images[entry.id]?.image)
             val last = page.last()
             cursor = HistoryCursor(last.observedAtMillis, last.id)
         }
@@ -219,9 +237,9 @@ class PushStorage(private val database: PushDatabase) {
 
     suspend fun journalImage(journalId: Long): ByteArray? = dao.media(journalId)
 
-    suspend fun setContentRetention(enabled: Boolean) = database.withTransaction {
+    suspend fun setContentRetention(enabled: Boolean) = database.writeTransaction {
         val current = journalSettings()
-        if (current.retainContent == enabled) return@withTransaction
+        if (current.retainContent == enabled) return@writeTransaction
         dao.saveJournalSettings(current.copy(
             retainContent = enabled,
             retentionRevision = current.retentionRevision + 1,
@@ -234,14 +252,14 @@ class PushStorage(private val database: PushDatabase) {
         }
     }
 
-    suspend fun setJournalCapacity(capacity: Int) = database.withTransaction {
+    suspend fun setJournalCapacity(capacity: Int) = database.writeTransaction {
         require(capacity in 1..MAX_JOURNAL_CAPACITY)
         dao.saveJournalSettings(journalSettings().copy(capacity = capacity))
         val state = journalState()
         updateJournalSize(state, state.actualCount, capacity)
     }
 
-    suspend fun clearHistory() = database.withTransaction {
+    suspend fun clearHistory() = database.writeTransaction {
         dao.clearJournal()
         dao.clearFrequency()
         val state = journalState()
@@ -258,7 +276,7 @@ class PushStorage(private val database: PushDatabase) {
         reason: RuleChange = RuleChange.MANUAL,
     ): RuleSet? = ruleHistory.replace(expectedVersion, rulesJson, reason)
 
-    internal suspend fun exportRuleSettings(): Pair<RuleSet, Set<String>> = database.withTransaction {
+    internal suspend fun exportRuleSettings(): Pair<RuleSet, Set<String>> = database.writeTransaction {
         rules() to dao.enabledPackages().toSet()
     }
 
@@ -267,8 +285,8 @@ class PushStorage(private val database: PushDatabase) {
         rulesJson: String,
         reason: RuleChange,
         enablePackages: Set<String>,
-    ): RuleSet? = database.withTransaction {
-        val result = replaceRules(expectedVersion, rulesJson, reason) ?: return@withTransaction null
+    ): RuleSet? = database.writeTransaction {
+        val result = replaceRules(expectedVersion, rulesJson, reason) ?: return@writeTransaction null
         for (packageName in enablePackages) setSource(packageName, true)
         result
     }

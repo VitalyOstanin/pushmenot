@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.PushMeNot" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#F7F8FC</item>
-        <item name="android:statusBarColor">#F7F8FC</item>
-        <item name="android:navigationBarColor">#F7F8FC</item>
+        <item name="android:windowBackground">@color/graphite_window</item>
+        <item name="android:statusBarColor">@color/graphite_window</item>
+        <item name="android:navigationBarColor">@color/graphite_window</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>

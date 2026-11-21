@@ -1,11 +1,16 @@
 package io.github.vitalyostanin.pushmenot.listener
 
 import android.app.Notification
+import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.ImageDecoder
+import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Parcelable
+import android.util.Size
 import androidx.core.os.BundleCompat
 import io.github.vitalyostanin.pushmenot.storage.PushStorage
 import java.io.ByteArrayOutputStream
@@ -17,6 +22,29 @@ internal data class NotificationArchive(
     private val icon: Icon?,
 ) {
     fun encodeImage(context: Context, packageName: String): ByteArray? = try {
+        val thumbnail = if (bitmap == null && icon?.type == Icon.TYPE_URI) {
+            decodeOffloadedPicture(context, icon)
+        } else {
+            drawThumbnail(context, packageName)
+        }
+        thumbnail?.let {
+            try {
+                val output = ByteArrayOutputStream()
+                it.compress(Bitmap.CompressFormat.WEBP_LOSSY, 75, output)
+                if (output.size() > PushStorage.MAX_MEDIA_BYTES) {
+                    output.reset()
+                    it.compress(Bitmap.CompressFormat.WEBP_LOSSY, 30, output)
+                }
+                output.toByteArray().takeIf { bytes -> bytes.isNotEmpty() && bytes.size <= PushStorage.MAX_MEDIA_BYTES }
+            } finally {
+                it.recycle()
+            }
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun drawThumbnail(context: Context, packageName: String): Bitmap? {
         val drawable = when (icon?.type) {
             Icon.TYPE_BITMAP, Icon.TYPE_ADAPTIVE_BITMAP -> icon.loadDrawable(context)
             Icon.TYPE_RESOURCE -> when (icon.resPackage) {
@@ -26,39 +54,50 @@ internal data class NotificationArchive(
             }
             else -> null
         }
-        val width = bitmap?.width ?: drawable?.intrinsicWidth ?: 0
-        val height = bitmap?.height ?: drawable?.intrinsicHeight ?: 0
-        if (width <= 0 || height <= 0) {
-            null
-        } else {
-            val scale = minOf(1.0, 512.0 / maxOf(width, height))
-            val targetWidth = (width * scale).toInt().coerceAtLeast(1)
-            val targetHeight = (height * scale).toInt().coerceAtLeast(1)
-            val thumbnail = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-            try {
-                val canvas = Canvas(thumbnail)
-                if (bitmap != null) {
-                    canvas.drawBitmap(
-                        bitmap, null, android.graphics.Rect(0, 0, targetWidth, targetHeight),
-                        android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG),
-                    )
-                } else {
-                    drawable?.setBounds(0, 0, targetWidth, targetHeight)
-                    drawable?.draw(canvas)
-                }
-                val output = ByteArrayOutputStream()
-                thumbnail.compress(Bitmap.CompressFormat.WEBP_LOSSY, 75, output)
-                if (output.size() > PushStorage.MAX_MEDIA_BYTES) {
-                    output.reset()
-                    thumbnail.compress(Bitmap.CompressFormat.WEBP_LOSSY, 30, output)
-                }
-                output.toByteArray().takeIf { it.isNotEmpty() && it.size <= PushStorage.MAX_MEDIA_BYTES }
-            } finally {
-                thumbnail.recycle()
+        val width = bitmap?.width ?: drawable?.intrinsicWidth ?: return null
+        val height = bitmap?.height ?: drawable?.intrinsicHeight ?: return null
+        if (width <= 0 || height <= 0) return null
+
+        val size = thumbnailSize(width, height)
+        val thumbnail = Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(thumbnail)
+            if (bitmap != null) {
+                canvas.drawBitmap(bitmap, null, Rect(0, 0, size.width, size.height), Paint(Paint.FILTER_BITMAP_FLAG))
+            } else {
+                drawable?.setBounds(0, 0, size.width, size.height)
+                drawable?.draw(canvas)
             }
+            return thumbnail
+        } catch (error: Exception) {
+            thumbnail.recycle()
+            throw error
         }
-    } catch (_: Exception) {
-        null
+    }
+
+    private fun decodeOffloadedPicture(context: Context, icon: Icon): Bitmap? {
+        val uri = icon.uri
+        if (uri.scheme != ContentResolver.SCHEME_CONTENT || uri.host != BITMAP_OFFLOAD_AUTHORITY) return null
+        // Android can pass a large notification picture through its own content provider.
+        if (context.packageManager.resolveContentProvider(BITMAP_OFFLOAD_AUTHORITY, 0)?.packageName != "android") {
+            return null
+        }
+        val source = ImageDecoder.createSource(context.contentResolver, uri)
+        return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            val size = thumbnailSize(info.size.width, info.size.height)
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            decoder.setTargetSize(size.width, size.height)
+        }
+    }
+
+    private fun thumbnailSize(width: Int, height: Int): Size {
+        val scale = minOf(1.0, MAX_THUMBNAIL_SIDE.toDouble() / maxOf(width, height))
+        return Size((width * scale).toInt().coerceAtLeast(1), (height * scale).toInt().coerceAtLeast(1))
+    }
+
+    private companion object {
+        const val MAX_THUMBNAIL_SIDE = 512
+        const val BITMAP_OFFLOAD_AUTHORITY = "com.android.bitmapoffload"
     }
 }
 

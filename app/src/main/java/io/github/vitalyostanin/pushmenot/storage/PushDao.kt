@@ -43,6 +43,9 @@ internal interface PushDao {
     @Query("SELECT image FROM journal_media WHERE journalId = :journalId")
     suspend fun media(journalId: Long): ByteArray?
 
+    @Query("SELECT * FROM journal_media WHERE journalId IN (:journalIds)")
+    suspend fun mediaForJournal(journalIds: List<Long>): List<JournalMedia>
+
     @Query("DELETE FROM journal_media")
     suspend fun clearMedia()
 

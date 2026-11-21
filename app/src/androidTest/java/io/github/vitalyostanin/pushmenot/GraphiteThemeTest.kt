@@ -3,7 +3,12 @@ package io.github.vitalyostanin.pushmenot
 import android.app.UiModeManager
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Bundle
+import android.view.KeyEvent
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
@@ -11,6 +16,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -20,6 +26,7 @@ import io.github.vitalyostanin.pushmenot.storage.JournalItem
 import io.github.vitalyostanin.pushmenot.storage.PushDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,6 +34,49 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class GraphiteThemeTest {
     @get:Rule val compose = createEmptyComposeRule()
+
+    @Test
+    fun buttonFocusContrastsWithItsSurfaceInBothThemes() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val uiMode = context.getSystemService(UiModeManager::class.java)
+        val launch = Intent.makeRestartActivityTask(ComponentName(context, MainActivity::class.java))
+
+        try {
+            for (mode in listOf(UiModeManager.MODE_NIGHT_NO, UiModeManager.MODE_NIGHT_YES)) {
+                uiMode.setApplicationNightMode(mode)
+                ActivityScenario.launch<MainActivity>(launch).use {
+                    compose.onNodeWithTag("sources_tab").performClick()
+                    val instrumentation = InstrumentationRegistry.getInstrumentation()
+                    instrumentation.setInTouchMode(false)
+                    instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB)
+                    val addApp = compose.onNodeWithTag("add_app")
+                    addApp.performSemanticsAction(SemanticsActions.RequestFocus)
+                    addApp.assertIsFocused()
+                    assertFocusContrast("add_app", mode)
+
+                    compose.onNodeWithTag("rules_tab").performClick()
+                    val globalRules = compose.onNodeWithTag("global_rules")
+                    globalRules.performSemanticsAction(SemanticsActions.RequestFocus)
+                    globalRules.assertIsFocused()
+                    assertFocusContrast("global_rules", mode)
+                }
+            }
+        } finally {
+            uiMode.setApplicationNightMode(UiModeManager.MODE_NIGHT_AUTO)
+        }
+    }
+
+    private fun assertFocusContrast(tag: String, mode: Int) {
+        val pixels = compose.onNodeWithTag(tag).captureToImage().toPixelMap()
+        val x = pixels.width / 4
+        val border = pixels[x, 1].luminance()
+        val inside = pixels[x, pixels.height / 3].luminance()
+        val contrast = (maxOf(border, inside) + 0.05f) / (minOf(border, inside) + 0.05f)
+        InstrumentationRegistry.getInstrumentation().sendStatus(2, Bundle().apply {
+            putString("stream", "\nFOCUS_CONTRAST button=$tag nightMode=$mode ratio=$contrast\n")
+        })
+        assertTrue("Focus contrast for $tag in mode $mode is $contrast", contrast >= 3f)
+    }
 
     @Test
     fun settingsAndRecordedJournalDecisionsUseBothThemes() {
@@ -70,7 +120,8 @@ class GraphiteThemeTest {
                     }
                     for ((entryId, expectedCard) in recordedCards.zip(expectedCards)) {
                         val cardTag = "history_entry_$entryId"
-                        compose.onNodeWithTag("history_list").performScrollToNode(hasTestTag(cardTag))
+                        compose.onNodeWithTag("history_list", useUnmergedTree = true)
+                            .performScrollToNode(hasTestTag(cardTag))
                         val card = compose.onNodeWithTag(cardTag, useUnmergedTree = true).captureToImage().toPixelMap()
                         assertEquals(
                             "Journal entry $entryId in night mode $mode",

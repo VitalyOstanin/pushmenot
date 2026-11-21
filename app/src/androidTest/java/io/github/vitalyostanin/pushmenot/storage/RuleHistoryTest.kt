@@ -2,9 +2,8 @@ package io.github.vitalyostanin.pushmenot.storage
 
 import android.net.Uri
 import androidx.room.Room
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteOpenHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pushmenot.core.Action
@@ -17,11 +16,13 @@ import io.github.vitalyostanin.pushmenot.transfer.RuleTransfer
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
+import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -151,41 +152,69 @@ class RuleHistoryTest {
     fun migratesThePreviousAndCurrentRuleSetsWithDistinctSnapshotIds() {
         val previous = FilterRule("before", 1, "example.shop", Action.HIDE, title = TextCondition("Before"))
         val active = previous.copy(id = "active", title = TextCondition("Active"))
-        val helper = FrameworkSQLiteOpenHelperFactory().create(
-            SupportSQLiteOpenHelper.Configuration.builder(context)
-                .callback(object : SupportSQLiteOpenHelper.Callback(1) {
-                    override fun onCreate(db: SupportSQLiteDatabase) {
-                        db.execSQL("CREATE TABLE journal (ruleId TEXT, ruleRevision INTEGER)")
-                        db.execSQL("INSERT INTO journal VALUES ('active', 9)")
-                        db.execSQL("CREATE TABLE rule_set (version INTEGER NOT NULL, rulesJson TEXT NOT NULL, previousRulesJson TEXT, singleton INTEGER PRIMARY KEY NOT NULL)")
-                        db.execSQL(
-                            "INSERT INTO rule_set VALUES (7, ?, ?, 0)",
-                            arrayOf(RuleJson.encode(listOf(active)), RuleJson.encode(listOf(previous))),
-                        )
-                        PushDatabase.addHistoryAndStatistics.migrate(db)
-                    }
+        BundledSQLiteDriver().open(":memory:").use { db ->
+            db.execSQL("CREATE TABLE journal (ruleId TEXT, ruleRevision INTEGER)")
+            db.execSQL("INSERT INTO journal VALUES ('active', 9)")
+            db.execSQL("CREATE TABLE rule_set (version INTEGER NOT NULL, rulesJson TEXT NOT NULL, previousRulesJson TEXT, singleton INTEGER PRIMARY KEY NOT NULL)")
+            db.prepare("INSERT INTO rule_set VALUES (7, ?, ?, 0)").use {
+                it.bindText(1, RuleJson.encode(listOf(active)))
+                it.bindText(2, RuleJson.encode(listOf(previous)))
+                it.step()
+            }
+            PushDatabase.addHistoryAndStatistics.migrate(db)
 
-                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = error("Unexpected upgrade")
-                }).build(),
-        )
-        try {
-            val db = helper.writableDatabase
-            val revisions = db.query("SELECT revisionId, rulesJson FROM rule_history ORDER BY sequence").use { rows ->
-                buildList { while (rows.moveToNext()) add(rows.getString(0) to RuleJson.decode(rows.getString(1))) }
+            val revisions = db.prepare("SELECT revisionId, rulesJson FROM rule_history ORDER BY sequence").use { rows ->
+                buildList { while (rows.step()) add(rows.getText(0) to RuleJson.decode(rows.getText(1))) }
             }
             assertEquals(listOf(listOf(previous), listOf(active)), revisions.map { it.second })
             assertEquals(2, revisions.map { it.first }.distinct().size)
-            db.query("SELECT revision FROM rule_revision_floor WHERE ruleId='active'").use { rows ->
-                assertTrue(rows.moveToFirst())
+            db.prepare("SELECT revision FROM rule_revision_floor WHERE ruleId='active'").use { rows ->
+                assertTrue(rows.step())
                 assertEquals(9L, rows.getLong(0))
             }
-            db.query("SELECT version, activeRevisionId FROM rule_set").use { rows ->
-                assertTrue(rows.moveToFirst())
+            db.prepare("SELECT version, activeRevisionId FROM rule_set").use { rows ->
+                assertTrue(rows.step())
                 assertEquals(7L, rows.getLong(0))
-                assertEquals(revisions.last().first, rows.getString(1))
+                assertEquals(revisions.last().first, rows.getText(1))
+            }
+        }
+    }
+
+    @Test
+    fun opensTheExistingFrameworkDatabaseWithTheBundledDriver(): Unit = runBlocking {
+        val name = "driver-upgrade-${UUID.randomUUID()}.db"
+        val now = System.currentTimeMillis()
+        val sample = FilterRule("existing", 1, "example.shop", Action.HIDE, title = TextCondition("Promotion"))
+        try {
+            val previous = Room.databaseBuilder(context, PushDatabase::class.java, name).build()
+            try {
+                val storage = previous.storage
+                storage.setSource("example.shop", true)
+                storage.replaceRules(0, RuleJson.encode(listOf(sample)))
+                storage.appendNotification(
+                    JournalItem(now, packageName = "example.shop", title = "Order ready"),
+                    storage.contentRevision(),
+                    byteArrayOf(7, 8, 9),
+                )
+            } finally {
+                previous.close()
+            }
+
+            val current = PushDatabase.builder(context, name).build()
+            try {
+                val storage = current.storage
+                assertTrue(storage.source("example.shop")?.enabled == true)
+                assertEquals(listOf(sample), RuleJson.decode(storage.rules().rulesJson))
+                val entry = storage.historyPage().single()
+                assertEquals("Order ready", entry.title)
+                assertArrayEquals(byteArrayOf(7, 8, 9), storage.journalImage(entry.id))
+                storage.clearHistory()
+                assertTrue(storage.historyPage().isEmpty())
+            } finally {
+                current.close()
             }
         } finally {
-            helper.close()
+            context.deleteDatabase(name)
         }
     }
 
