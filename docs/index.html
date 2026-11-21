@@ -3,36 +3,138 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Push Me Not — Before filtering / After filtering</title>
-  <meta name="description" content="Filter Android notifications with rules and keep a searchable history.">
+  <title>Push Me Not — Notification filter and history</title>
+  <meta name="description" content="Filter Android notifications with local rules and find received notifications in a searchable history.">
   <link rel="alternate" hreflang="ru" href="ru/">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="wrap">
-  <a class="brand" href="./"><span class="icon sun-icon" aria-hidden="true"><i class="sun"></i></span>Push Me Not</a>
-  <nav><a href="https://github.com/VitalyOstanin/pushmenot">GitHub</a><a href="ru/" hreflang="ru" lang="ru">Русский</a></nav>
-</div></header>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="./"><span class="brand-icon"><span class="sun" aria-hidden="true"></span></span>Push Me Not</a>
+    <nav aria-label="Site navigation">
+      <a href="https://github.com/VitalyOstanin/pushmenot">GitHub</a>
+      <a href="ru/" class="language" hreflang="ru" lang="ru">Русский</a>
+    </nav>
+  </div>
+</header>
+
 <main class="wrap">
-  <section class="intro">
-    <h1>Keep the order update. Hide the promotion.</h1>
-    <p>Set rules for Android notifications. History saves every notification Android delivers to the app, even after it leaves the notification shade.</p>
-    <a class="cta" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Get the APK on GitHub</a>
-    <small>Android 12 or later</small>
-  </section>
-  <figure>
-    <div class="comparison">
-      <section class="shot"><h2>Before filtering</h2><div class="shade"><div class="shade-bar"><span>12:42</span><span>84%</span></div><div class="shade-label">Notifications</div><article class="notice "><div class="icon " aria-hidden="true">H</div><div><span class="source">Heather Shop</span><strong>Your order is ready for pickup</strong><span class="message">Pick it up by Sunday.</span></div></article><article class="notice "><div class="icon " aria-hidden="true">H</div><div><span class="source">Heather Shop</span><strong>30% off home décor</strong><span class="message">Today only.</span></div></article><article class="notice offer"><div class="icon offer" aria-hidden="true">C</div><div><span class="source">Colour Reel</span><strong>Open today’s picks</strong><span class="message">New recommendations for you.</span></div></article><article class="notice shortcut"><div class="icon sun-icon" aria-hidden="true"><i class="sun"></i></div><div><span class="source">Push Me Not</span><strong>Notification history</strong><span class="message">Tap to open history</span></div></article></div></section>
-      <section class="shot"><h2>After filtering</h2><div class="shade"><div class="shade-bar"><span>12:42</span><span>84%</span></div><div class="shade-label">Notifications</div><article class="notice "><div class="icon " aria-hidden="true">H</div><div><span class="source">Heather Shop</span><strong>Your order is ready for pickup</strong><span class="message">Pick it up by Sunday.</span></div></article><article class="notice shortcut"><div class="icon sun-icon" aria-hidden="true"><i class="sun"></i></div><div><span class="source">Push Me Not</span><strong>Notification history</strong><span class="message">Tap to open history</span></div></article></div></section>
+  <section class="hero" aria-labelledby="main-heading">
+    <div class="hero-copy">
+      <h1 id="main-heading">Keep the order update. Hide the promotion.</h1>
+      <p class="subtitle">Notification filter and history for Android</p>
+      <p class="lede">Set rules to hide unwanted notifications. History keeps every notification the app receives.</p>
+      <div class="download">
+        <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Download for Android</a>
+        <span>Android 12 or later</span>
+      </div>
+      <p class="download-help">Choose the .apk file on GitHub. <a href="#install">Installation steps</a></p>
     </div>
-    <figcaption>Demo with fictional apps. The order update and the promotion came from the same shop channel.</figcaption>
-  </figure>
-  <section class="facts">
-    <article><h2>Rules by app and text</h2><p>Create a rule from the shade or journal. Match titles, messages, senders, and channels.</p></article>
-    <article><h2>Searchable history</h2><p>Open an order or message from history while the original notification action is still available. See how many notifications your rules hid today and this week.</p></article>
-    <article><h2>Your rules stay with you</h2><p>Export rules to a file, add rules from another device, or restore an earlier version.</p></article>
+    <figure class="demo">
+      <div class="comparison">
+        <div class="shade">
+          <h2>Before filtering</h2>
+          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">H</span><div><span class="source">Heather Shop</span><strong>Order ready for pickup</strong></div></li><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">H</span><div><span class="source">Heather Shop</span><strong>30% discount on décor</strong></div></li><li class="notice "><span class="app-icon rec-icon" aria-hidden="true">R</span><div><span class="source">Ribbon</span><strong>Today’s picks</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Notification history</strong></div></li></ul>
+        </div>
+        <div class="shade">
+          <h2>After filtering</h2>
+          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">H</span><div><span class="source">Heather Shop</span><strong>Order ready for pickup</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Notification history</strong></div></li></ul>
+        </div>
+      </div>
+      <figcaption>Fictional apps. The order update and the promotion came from the same shop channel.</figcaption>
+    </figure>
   </section>
-  <footer>Android posts notifications first. A banner or sound can appear before Push Me Not dismisses the notification.</footer>
+
+  <section class="feature history" aria-labelledby="history-heading">
+    <div class="feature-copy">
+      <h2 id="history-heading">Find a notification after it leaves the shade</h2>
+      <p>History keeps the order update and the promotion you hid. You can open the order from history while the original notification action is still available.</p>
+      <p>History and rules are stored on your device.</p>
+    </div>
+    <figure class="app-figure">
+      <div class="app-demo">
+        <div class="history-list">
+          <p class="app-heading">History</p>
+          <p class="app-search">Search notifications</p>
+          <article class="entry">
+          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">H</span><strong>Heather Shop</strong></div>
+          <p class="entry-title">Order ready for pickup</p>
+          <p class="entry-body">Pick it up by Sunday.</p>
+          <span class="status ">Kept</span>
+        </article>
+        <article class="entry">
+          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">H</span><strong>Heather Shop</strong></div>
+          <p class="entry-title">30% discount on décor</p>
+
+          <span class="status status-hidden">Hidden by a rule</span>
+        </article>
+        </div>
+        <div class="detail" role="group" aria-label="Order notification details">
+          <p class="app-heading">Notification</p>
+          <div class="entry">
+            <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">H</span><strong>Heather Shop</strong></div>
+            <p class="entry-title">Order ready for pickup</p>
+            <p class="entry-body">Pick it up by Sunday.</p>
+            <span class="status">Kept</span>
+            <span class="sample-action">Open notification</span>
+          </div>
+        </div>
+      </div>
+      <figcaption>History and order details. Demo data.</figcaption>
+    </figure>
+  </section>
+
+  <section class="feature rule" aria-labelledby="rule-heading">
+    <div class="feature-copy">
+      <h2 id="rule-heading">Create a rule from a notification</h2>
+      <p>Open a notification in Push Me Not, choose Create rule and edit the condition if needed. In this example, the rule hides promotions from Heather Shop and keeps the order update.</p>
+      <p class="caveat">Android posts the notification first, so a banner or sound can appear before the rule hides it.</p>
+    </div>
+    <figure class="rule-figure">
+      <div class="rule-example">
+        <p class="app-heading">New rule</p>
+        <dl>
+          <div><dt>App</dt><dd>Heather Shop</dd></div>
+          <div><dt>Condition</dt><dd>Title contains “discount”</dd></div>
+          <div><dt>Action</dt><dd><span class="status status-hidden">Hide</span></dd></div>
+        </dl>
+      </div>
+      <figcaption>Example of a rule for the promotion above.</figcaption>
+    </figure>
+  </section>
+
+  <section class="install" id="install" aria-labelledby="install-heading">
+    <h2 id="install-heading">Install and get started</h2>
+    <ol>
+      <li><strong>Install the APK.</strong> Download it from GitHub and open it on your phone. Android may ask you to allow installs from this source.</li>
+      <li><strong>Grant notification access.</strong> Open Push Me Not. The permission lets it read notifications for filtering and history.</li>
+      <li><strong>Create your first rule.</strong> Choose an unwanted notification in the app and tap Create rule. If needed, turn on filtering for that app when saving.</li>
+    </ol>
+    <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Download for Android</a>
+  </section>
+
+  <section class="features" aria-labelledby="features-heading">
+    <h2 id="features-heading">Features</h2>
+    <ul class="feature-list">
+      <li><strong>Keep important alerts and hide promotions</strong><p>Keep order or payment updates while hiding ads from the same app, even in the same notification channel.</p></li>
+      <li><strong>Find all received notifications in one place</strong><p>Search history and narrow it to one app. It includes hidden notifications and notifications from apps you do not filter.</p></li>
+      <li><strong>Reopen dismissed notifications</strong><p>Go back to an order or message from history while the original notification action is available. If it has expired, open the sending app when available.</p></li>
+      <li><strong>Create a rule from a notification</strong><p>Use a notification still in the shade or an entry in history. A saved rule can also hide matching notifications already in the shade.</p></li>
+      <li><strong>Hide everything except what you allow</strong><p>Set what happens to unmatched notifications for an app or channel, then add Keep rules for the alerts you want.</p></li>
+      <li><strong>Build rules and limit repeats</strong><p>Match the app, channel, title, text or sender. Use rules for one app or across apps, and limit how many matching alerts to keep within a time window.</p></li>
+      <li><strong>Preview the effect of a rule</strong><p>Test a draft on saved notifications. In history, compare the original decision with what the current rules would do.</p></li>
+      <li><strong>Open history from the shade</strong><p>Enable the Push Me Not notification to jump straight to history from the shade.</p></li>
+      <li><strong>See how many notifications were hidden</strong><p>View the number hidden out of all received notifications today and this week.</p></li>
+      <li><strong>Control what history stores</strong><p>Set its size and choose whether to save notification content, including text and available image previews. History and rules are stored on your device.</p></li>
+      <li><strong>Export history for analysis</strong><p>Choose an app and date range, then export to JSON. You can choose which content to include.</p></li>
+      <li><strong>Move rules to another phone</strong><p>Save or share a rules file with the apps selected for filtering. Add new rules from a file or replace your current rules.</p></li>
+      <li><strong>Restore earlier versions of your rules</strong><p>Every saved change creates a local snapshot. Compare and restore versions, or save a backup that includes all versions.</p></li>
+      <li><strong>Manage Android permissions and background settings</strong><p>Check notification access and battery restrictions, then open the relevant Android settings from the app. The interface is available in English and Russian.</p></li>
+      <li><strong>Check for and install updates</strong><p>Check GitHub for a new release, then install it from the app or download the APK manually.</p></li>
+    </ul>
+  </section>
 </main>
+<footer class="wrap site-footer"><a href="https://github.com/VitalyOstanin/pushmenot">Source code on GitHub</a></footer>
 </body>
 </html>

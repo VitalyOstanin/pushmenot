@@ -3,36 +3,138 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Push Me Not — До фильтрации / После фильтрации</title>
-  <meta name="description" content="Фильтруйте уведомления Android по правилам и находите их в журнале с поиском.">
+  <title>Push Me Not — Фильтр уведомлений и журнал</title>
+  <meta name="description" content="Фильтруйте уведомления Android по своим правилам и находите полученные уведомления в журнале с поиском.">
   <link rel="alternate" hreflang="en" href="../">
   <link rel="stylesheet" href="../style.css">
 </head>
 <body>
-<header><div class="wrap">
-  <a class="brand" href="./"><span class="icon sun-icon" aria-hidden="true"><i class="sun"></i></span>Push Me Not</a>
-  <nav><a href="https://github.com/VitalyOstanin/pushmenot">GitHub</a><a href="../" hreflang="en" lang="en">English</a></nav>
-</div></header>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="./"><span class="brand-icon"><span class="sun" aria-hidden="true"></span></span>Push Me Not</a>
+    <nav aria-label="Навигация по сайту">
+      <a href="https://github.com/VitalyOstanin/pushmenot">GitHub</a>
+      <a href="../" class="language" hreflang="en" lang="en">English</a>
+    </nav>
+  </div>
+</header>
+
 <main class="wrap">
-  <section class="intro">
-    <h1>Оставьте уведомление о заказе. Скройте рекламу.</h1>
-    <p>Настройте правила для уведомлений Android. В журнале сохраняются все полученные уведомления, даже если их уже нет в шторке.</p>
-    <a class="cta" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Открыть релиз на GitHub</a>
-    <small>Android 12 и новее</small>
-  </section>
-  <figure>
-    <div class="comparison">
-      <section class="shot"><h2>До фильтрации</h2><div class="shade"><div class="shade-bar"><span>12:42</span><span>84%</span></div><div class="shade-label">Уведомления</div><article class="notice "><div class="icon " aria-hidden="true">В</div><div><span class="source">Магазин «Вереск»</span><strong>Заказ готов к выдаче</strong><span class="message">Заберите его до воскресенья.</span></div></article><article class="notice "><div class="icon " aria-hidden="true">В</div><div><span class="source">Магазин «Вереск»</span><strong>Скидка 30% на декор</strong><span class="message">Только сегодня.</span></div></article><article class="notice offer"><div class="icon offer" aria-hidden="true">П</div><div><span class="source">«Пёстрая лента»</span><strong>Откройте подборку дня</strong><span class="message">Для вас есть новые рекомендации.</span></div></article><article class="notice shortcut"><div class="icon sun-icon" aria-hidden="true"><i class="sun"></i></div><div><span class="source">Push Me Not</span><strong>Журнал уведомлений</strong><span class="message">Нажмите, чтобы открыть журнал</span></div></article></div></section>
-      <section class="shot"><h2>После фильтрации</h2><div class="shade"><div class="shade-bar"><span>12:42</span><span>84%</span></div><div class="shade-label">Уведомления</div><article class="notice "><div class="icon " aria-hidden="true">В</div><div><span class="source">Магазин «Вереск»</span><strong>Заказ готов к выдаче</strong><span class="message">Заберите его до воскресенья.</span></div></article><article class="notice shortcut"><div class="icon sun-icon" aria-hidden="true"><i class="sun"></i></div><div><span class="source">Push Me Not</span><strong>Журнал уведомлений</strong><span class="message">Нажмите, чтобы открыть журнал</span></div></article></div></section>
+  <section class="hero" aria-labelledby="main-heading">
+    <div class="hero-copy">
+      <h1 id="main-heading">Оставьте уведомление о заказе. Скройте рекламу.</h1>
+      <p class="subtitle">Фильтр уведомлений и журнал для Android</p>
+      <p class="lede">Скрывайте лишнее по своим правилам. Все полученные уведомления остаются в журнале.</p>
+      <div class="download">
+        <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Скачать для Android</a>
+        <span>Android 12 и новее</span>
+      </div>
+      <p class="download-help">На GitHub выберите файл .apk. <a href="#install">Как установить</a></p>
     </div>
-    <figcaption>Демо с вымышленными приложениями. Заказ и реклама пришли из одного канала магазина.</figcaption>
-  </figure>
-  <section class="facts">
-    <article><h2>Правила по приложению и тексту</h2><p>Создавайте правила из шторки или журнала. Учитывайте заголовки, текст, отправителей и каналы.</p></article>
-    <article><h2>Журнал с поиском</h2><p>Открывайте заказ или сообщение прямо из журнала, пока переход из уведомления доступен. Смотрите, сколько уведомлений скрыто за день и неделю.</p></article>
-    <article><h2>Перенос правил</h2><p>Экспортируйте правила в файл, дополняйте их с другого устройства или восстанавливайте прежнюю версию.</p></article>
+    <figure class="demo">
+      <div class="comparison">
+        <div class="shade">
+          <h2>До фильтрации</h2>
+          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">В</span><div><span class="source">Магазин «Вереск»</span><strong>Заказ готов к выдаче</strong></div></li><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">В</span><div><span class="source">Магазин «Вереск»</span><strong>Скидка 30% на декор</strong></div></li><li class="notice "><span class="app-icon rec-icon" aria-hidden="true">Л</span><div><span class="source">Лента дня</span><strong>Подборка дня</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Журнал уведомлений</strong></div></li></ul>
+        </div>
+        <div class="shade">
+          <h2>После фильтрации</h2>
+          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">В</span><div><span class="source">Магазин «Вереск»</span><strong>Заказ готов к выдаче</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Журнал уведомлений</strong></div></li></ul>
+        </div>
+      </div>
+      <figcaption>Пример с вымышленными приложениями. Заказ и реклама пришли из одного канала магазина.</figcaption>
+    </figure>
   </section>
-  <footer>Android сначала публикует уведомление. Баннер или звук могут появиться до того, как Push Me Not его уберёт.</footer>
+
+  <section class="feature history" aria-labelledby="history-heading">
+    <div class="feature-copy">
+      <h2 id="history-heading">Найдите уведомление, даже если его уже нет в шторке</h2>
+      <p>В журнале остаются и заказ, и скрытая скидка. Из записи можно открыть заказ, пока переход из уведомления доступен.</p>
+      <p>Журнал и правила хранятся на устройстве.</p>
+    </div>
+    <figure class="app-figure">
+      <div class="app-demo">
+        <div class="history-list">
+          <p class="app-heading">Журнал</p>
+          <p class="app-search">Поиск уведомлений</p>
+          <article class="entry">
+          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">В</span><strong>Магазин «Вереск»</strong></div>
+          <p class="entry-title">Заказ готов к выдаче</p>
+          <p class="entry-body">Заберите до воскресенья.</p>
+          <span class="status ">Оставлено</span>
+        </article>
+        <article class="entry">
+          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">В</span><strong>Магазин «Вереск»</strong></div>
+          <p class="entry-title">Скидка 30% на декор</p>
+
+          <span class="status status-hidden">Скрыто по правилу</span>
+        </article>
+        </div>
+        <div class="detail" role="group" aria-label="Карточка уведомления о заказе">
+          <p class="app-heading">Уведомление</p>
+          <div class="entry">
+            <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">В</span><strong>Магазин «Вереск»</strong></div>
+            <p class="entry-title">Заказ готов к выдаче</p>
+            <p class="entry-body">Заберите до воскресенья.</p>
+            <span class="status">Оставлено</span>
+            <span class="sample-action">Открыть уведомление</span>
+          </div>
+        </div>
+      </div>
+      <figcaption>Журнал и карточка заказа. Вымышленные данные.</figcaption>
+    </figure>
+  </section>
+
+  <section class="feature rule" aria-labelledby="rule-heading">
+    <div class="feature-copy">
+      <h2 id="rule-heading">Создайте правило из уведомления</h2>
+      <p>Откройте уведомление в Push Me Not, выберите «Создать правило» и при необходимости измените условие. В примере правило скрывает рекламу магазина «Вереск» и оставляет заказ.</p>
+      <p class="caveat">Android сначала показывает уведомление, поэтому баннер или звук могут появиться до того, как правило его скроет.</p>
+    </div>
+    <figure class="rule-figure">
+      <div class="rule-example">
+        <p class="app-heading">Новое правило</p>
+        <dl>
+          <div><dt>Приложение</dt><dd>Магазин «Вереск»</dd></div>
+          <div><dt>Условие</dt><dd>Заголовок содержит «Скидка»</dd></div>
+          <div><dt>Действие</dt><dd><span class="status status-hidden">Скрыть</span></dd></div>
+        </dl>
+      </div>
+      <figcaption>Пример правила для рекламы из шторки выше.</figcaption>
+    </figure>
+  </section>
+
+  <section class="install" id="install" aria-labelledby="install-heading">
+    <h2 id="install-heading">Установка и первое правило</h2>
+    <ol>
+      <li><strong>Установите APK.</strong> Скачайте файл с GitHub и откройте на телефоне. Android может попросить разрешение на установку из этого источника.</li>
+      <li><strong>Разрешите доступ к уведомлениям.</strong> Откройте Push Me Not. Разрешение нужно, чтобы приложение могло читать уведомления для фильтрации и журнала.</li>
+      <li><strong>Создайте первое правило.</strong> Выберите в приложении ненужное уведомление и нажмите «Создать правило». Если фильтрация для этого приложения выключена, включите её при сохранении.</li>
+    </ol>
+    <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Скачать для Android</a>
+  </section>
+
+  <section class="features" aria-labelledby="features-heading">
+    <h2 id="features-heading">Возможности</h2>
+    <ul class="feature-list">
+      <li><strong>Оставляйте важное, скрывайте рекламу</strong><p>Сохраняйте уведомления о заказах и платежах, скрывая рекламу от того же приложения, даже в одном канале.</p></li>
+      <li><strong>Находите все полученные уведомления в одном журнале</strong><p>Ищите записи и просматривайте журнал отдельного приложения. В нём есть и скрытые уведомления, и уведомления приложений без фильтрации.</p></li>
+      <li><strong>Снова переходите по закрытым уведомлениям</strong><p>Открывайте заказ или сообщение из журнала, пока переход доступен. Если переход недоступен, журнал предложит открыть само приложение, когда это возможно.</p></li>
+      <li><strong>Создавайте правила из уведомлений</strong><p>Возьмите карточку из шторки или запись из журнала. Сохранённое правило может сразу убрать подходящие уведомления, которые ещё в шторке.</p></li>
+      <li><strong>Скрывайте всё, кроме разрешённого</strong><p>Настройте поведение уведомлений без совпавшего правила для приложения или канала и добавьте правила «Оставить» для нужных уведомлений.</p></li>
+      <li><strong>Настраивайте условия и ограничивайте повторы</strong><p>Учитывайте приложение, канал, заголовок, текст или отправителя. Создавайте общие правила и правила для отдельных приложений. Оставляйте только первые совпадения за выбранный интервал.</p></li>
+      <li><strong>Проверяйте правила на сохранённых уведомлениях</strong><p>Проверяйте черновик на записях журнала. В каждой записи можно сравнить исходный результат с тем, как сработали бы текущие правила.</p></li>
+      <li><strong>Открывайте журнал из шторки</strong><p>Включите карточку Push Me Not, чтобы открывать журнал прямо из шторки.</p></li>
+      <li><strong>Смотрите, сколько уведомлений скрыто</strong><p>Узнавайте, сколько уведомлений скрыто из общего числа за день и за неделю.</p></li>
+      <li><strong>Управляйте хранением журнала</strong><p>Выбирайте размер журнала и сохранять ли содержимое уведомлений, включая текст и доступные миниатюры изображений. Журнал и правила хранятся на устройстве.</p></li>
+      <li><strong>Экспортируйте журнал для анализа</strong><p>Выберите приложение и период, затем выгрузите записи в JSON. Состав выгрузки можно настроить.</p></li>
+      <li><strong>Переносите правила на другой телефон</strong><p>Сохраняйте или отправляйте файл правил со списком приложений для фильтрации. При импорте можно дополнить или заменить текущие правила.</p></li>
+      <li><strong>Восстанавливайте прежние версии правил</strong><p>При каждом сохранённом изменении создаётся локальная версия. Сравнивайте и восстанавливайте версии или сохраняйте резервную копию со всей историей правил.</p></li>
+      <li><strong>Проверяйте разрешения и фоновую работу</strong><p>Проверяйте доступ к уведомлениям и ограничения батареи. Нужные настройки Android открываются из приложения. Интерфейс доступен на русском и английском.</p></li>
+      <li><strong>Проверяйте и устанавливайте обновления</strong><p>Проверяйте наличие новой версии на GitHub. Её можно установить из приложения или скачать APK вручную.</p></li>
+    </ul>
+  </section>
 </main>
+<footer class="wrap site-footer"><a href="https://github.com/VitalyOstanin/pushmenot">Исходный код на GitHub</a></footer>
 </body>
 </html>
