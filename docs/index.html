@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-en="Push Me Not — Android notification filtering" data-ru="Push Me Not — фильтрация уведомлений Android">Push Me Not — Android notification filtering</title>
+<meta name="description" content="Filter Android notifications with rules, keep a searchable journal, and transfer your rules between devices.">
+<style>
+:root{color-scheme:light dark;--ink:#192824;--weak:#435b51;--bg:#fafcfb;--surface:#eaf3ed;--card:#fff;--line:#b5cbc0;--green:#225d45;--button-text:#fff;--gold:#f5ce53;font:16px/1.5 system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--ink:#eef6ef;--weak:#b7ccc0;--bg:#14231c;--surface:#20352a;--card:#253d30;--line:#536f60;--green:#b4e4c7;--button-text:#1c3024}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}a{color:var(--green)}.wrap{width:min(1080px,calc(100% - 32px));margin:auto}
+nav,.hero,.facts{display:grid;gap:20px}nav{grid-template-columns:1fr auto auto;align-items:center;padding:18px 0}.brand{display:flex;align-items:center;gap:10px;font-weight:750;color:var(--ink);text-decoration:none}
+.mark{width:36px;height:36px;display:grid;place-items:center;background:#225d45;border-radius:10px}.sun{width:24px;height:24px;background:var(--gold);clip-path:polygon(50% 0%,60% 20%,78% 12%,79% 33%,100% 36%,85% 50%,100% 65%,79% 68%,78% 88%,60% 80%,50% 100%,40% 80%,22% 88%,21% 68%,0 65%,15% 50%,0 36%,21% 33%,22% 12%,40% 20%);position:relative}.sun:before{content:"";position:absolute;left:8px;top:9px;width:2px;height:3px;border-radius:100%;background:#49300d;box-shadow:6px 0 #49300d}.sun:after{content:"";position:absolute;left:9px;top:12px;width:6px;height:4px;border-bottom:1.5px solid #49300d;border-radius:100%}
+.hero{grid-template-columns:1.25fr minmax(270px,390px);align-items:center;padding:clamp(30px,7vw,86px) clamp(18px,5vw,56px);background:var(--surface);border:1px solid var(--line);border-radius:30px}
+h1{font-size:clamp(34px,5.2vw,62px);line-height:1.04;letter-spacing:-.045em;margin:0 0 20px;text-wrap:balance}h2{font-size:20px;margin:0 0 6px}p{margin:0 0 12px}.intro{font-size:clamp(16px,2vw,20px);color:var(--weak);max-width:38ch}.muted,figcaption{color:var(--weak)}.cta,button{display:inline-flex;min-height:46px;align-items:center;padding:8px 15px;border:1px solid var(--green);border-radius:12px;background:transparent;color:var(--green);font:inherit}.cta{background:var(--green);color:var(--button-text);font-weight:650;text-decoration:none;margin:5px 0 8px}button{cursor:pointer}
+figure{margin:0}.device{border:1px solid var(--line);border-radius:23px;background:var(--bg);padding:14px;box-shadow:0 18px 48px #163b2526}.notification{border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:8px;background:var(--card)}.notification p{margin:2px 0}.app-name{font-weight:750}.notification small{color:var(--weak)}.result{color:var(--green);font-weight:650}.hidden-result{color:var(--weak);font-weight:650}figcaption{font-size:13px;margin-top:10px;text-align:center}
+.facts{grid-template-columns:repeat(3,1fr);padding-block:30px}.facts article{border-top:1px solid var(--line);padding-top:14px}.facts p{color:var(--weak)}footer{border-top:1px solid var(--line);padding:16px 0 30px;font-size:14px;color:var(--weak)}
+:focus-visible{outline:3px solid #edaf27;outline-offset:2px}
+@media(max-width:740px){.hero,.facts{grid-template-columns:1fr}.hero{gap:16px}nav{gap:8px}.device{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a class="brand" href="#"><span class="mark" aria-hidden="true"><span class="sun"></span></span>Push Me Not</a>
+<a href="https://github.com/VitalyOstanin/pushmenot">GitHub</a>
+<button type="button" id="language" lang="ru">Русский</button>
+</nav>
+<main>
+<section class="hero">
+<div>
+<h1 data-en="Keep the order update. Hide the promotion." data-ru="Оставьте уведомление о заказе. Скройте рекламу.">Keep the order update. Hide the promotion.</h1>
+<p class="intro" data-en="Filter Android notifications with your own rules and find them later in a searchable journal." data-ru="Фильтруйте уведомления Android по своим правилам и находите их позже в журнале с поиском.">Filter Android notifications with your own rules and find them later in a searchable journal.</p>
+<a class="cta" href="https://github.com/VitalyOstanin/pushmenot/releases/latest" data-en="Get the APK on GitHub" data-ru="Открыть релиз на GitHub">Get the APK on GitHub</a>
+<p class="muted" data-en="v0.2.9 requires Android 12 or later. v0.2.8 requires Android 14 or later." data-ru="Для 0.2.9 нужен Android 12 или новее. Для 0.2.8 — Android 14 или новее.">v0.2.9 requires Android 12 or later. v0.2.8 requires Android 14 or later.</p>
+</div>
+<figure>
+<div class="device">
+<h2 data-en="Notification journal" data-ru="Журнал уведомлений">Notification journal</h2>
+<div class="notification"><p class="app-name" data-en="Shop" data-ru="Магазин">Shop</p><small data-en="Channel: Orders" data-ru="Канал: Заказы">Channel: Orders</small><p data-en="Your order is ready for pickup" data-ru="Ваш заказ готов к выдаче">Your order is ready for pickup</p><p class="result" data-en="Kept" data-ru="Оставлено">Kept</p></div>
+<div class="notification"><p class="app-name" data-en="Shop" data-ru="Магазин">Shop</p><small data-en="Channel: Orders" data-ru="Канал: Заказы">Channel: Orders</small><p data-en="Special offer for your next purchase" data-ru="Предложение для следующей покупки">Special offer for your next purchase</p><p class="hidden-result" data-en="Hidden by a rule" data-ru="Скрыто по правилу">Hidden by a rule</p></div>
+</div>
+<figcaption data-en="Illustration with sample notifications" data-ru="Иллюстрация с вымышленными уведомлениями">Illustration with sample notifications</figcaption>
+</figure>
+</section>
+<section class="facts">
+<article><h2 data-en="Rules by app and text" data-ru="Правила по приложению и тексту">Rules by app and text</h2><p data-en="Create a rule from the shade or journal. Match titles, messages, senders, and channels." data-ru="Создавайте правила из шторки или журнала. Учитывайте заголовки, текст, отправителей и каналы.">Create a rule from the shade or journal. Match titles, messages, senders, and channels.</p></article>
+<article><h2 data-en="Searchable history" data-ru="Журнал с поиском">Searchable history</h2><p data-en="Find a notification you dismissed and see how many the rules hid today and this week." data-ru="Находите смахнутые уведомления и смотрите, сколько уведомлений скрыто за день и неделю.">Find a notification you dismissed and see how many the rules hid today and this week.</p></article>
+<article><h2 data-en="Your rules stay with you" data-ru="Перенос правил">Your rules stay with you</h2><p data-en="Export rules to a file, add rules from another device, or restore an earlier version." data-ru="Экспортируйте правила в файл, дополняйте их с другого устройства или восстанавливайте прежнюю версию.">Export rules to a file, add rules from another device, or restore an earlier version.</p></article>
+</section>
+</main>
+<footer data-en="Android delivers notifications before Push Me Not can dismiss them. A banner or sound may appear first." data-ru="Android сначала публикует уведомление. Баннер или звук могут появиться до того, как Push Me Not уберёт его.">Android delivers notifications before Push Me Not can dismiss them. A banner or sound may appear first.</footer>
+</div>
+<script>
+const button = document.querySelector('#language');
+button.addEventListener('click', () => {
+  const lang = document.documentElement.lang === 'en' ? 'ru' : 'en';
+  document.documentElement.lang = lang;
+  button.lang = lang === 'en' ? 'ru' : 'en';
+  button.textContent = lang === 'en' ? 'Русский' : 'English';
+  document.querySelectorAll('[data-en]').forEach(node => { node.textContent = node.dataset[lang]; });
+});
+</script>
+</body>
+</html>
