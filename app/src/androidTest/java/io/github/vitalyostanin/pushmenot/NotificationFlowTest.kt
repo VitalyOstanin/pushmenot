@@ -419,7 +419,8 @@ class NotificationFlowTest {
             clickUi("history_reset")
             awaitVisible("All apps", scrollBackward = true)
             if (locale.set("ru")) {
-                clickUi("Настройки", within = "settings_tab")
+                // The locale change can recreate the activity after the tab first appears.
+                clickUi("Настройки", within = "settings_tab", untilVisible = "retain_content")
                 awaitVisible("Сохранять содержимое уведомлений")
             }
         } finally {

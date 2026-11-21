@@ -11,23 +11,27 @@
 
 ## Purpose
 
-Use a light, quiet interface that makes filtering decisions easy to read. Keep the app's filtering switch and the action that opens Android notification settings visibly distinct. Use fictional notification content in examples and screenshots.
+Use a graphite interface that follows the system light or dark theme. Make filtering decisions easy to read. Keep the app's filtering switch and the action that opens Android notification settings visibly distinct. Use fictional notification content in examples and screenshots.
 
 ## Color roles
 
-| No. | Role                 | Color                                      |
-| --- | -------------------- | ------------------------------------------ |
-| 1   | Primary text         | `#192824`                                  |
-| 2   | Secondary text       | `#435B51`                                  |
-| 3   | Background           | `#E9EFEC`                                  |
-| 4   | Screen surface       | `#FAFCFB`                                  |
-| 5   | Card surface         | `#FFFFFF`                                  |
-| 6   | Primary action       | `#225D45` background, white text           |
-| 7   | Secondary action     | `#527766` outline, `#194E39` text          |
-| 8   | Warning              | `#FFF3DF` background, `#192824` text       |
-| 9   | Keyboard focus       | `#F0B429` outline                           |
+| No. | Role                      | Light                  | Dark                   |
+| --- | ------------------------- | ---------------------- | ---------------------- |
+| 1   | Primary text              | `#202333`              | `#F0F1FA`              |
+| 2   | Secondary text            | `#535970`              | `#B9BFD1`              |
+| 3   | Screen background         | `#F7F8FC`              | `#171923`              |
+| 4   | Card surface              | `#FFFFFF`              | `#252936`              |
+| 5   | Primary action and text   | `#414A85` / `#FFFFFF`  | `#B5BFF8` / `#171923`  |
+| 6   | Headers and selection     | `#DFE4FA`              | `#363E60`              |
+| 7   | Warning background        | `#FFF0D7`              | `#50391F`              |
+| 8   | Warning text              | `#5C3B16`              | `#FFDFAA`              |
+| 9   | Keyboard focus            | `#F0B429`              | `#F0B429`              |
+| 10  | Hidden entry and label    | `#FFF0F1` / `#8A3444`  | `#39272F` / `#FFC1CB`  |
+| 11  | Allowed entry and label   | `#E8F5EC` / `#21573B`  | `#23352E` / `#B6E4C6`  |
 
 Use a filled button for the primary action and an outlined button for system navigation and secondary actions. Pair status colors with readable labels. Use the warning surface for missing access or incomplete history.
+
+Tint a journal card by its recorded decision. Use red for Hide decisions, including decisions from an app or channel mode. Use green only when a Keep rule matched. Use the standard card surface for other notifications. Assess current rules in a separate text line.
 
 ## Layout and typography
 

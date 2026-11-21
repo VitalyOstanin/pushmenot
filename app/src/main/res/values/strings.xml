@@ -47,6 +47,7 @@
     <string name="removal_requested">Removal requested</string>
     <string name="hide_decision">Rule chose to hide</string>
     <string name="kept">Kept</string>
+    <string name="kept_by_rule">Kept by a rule</string>
     <string name="not_filtered">Not filtered</string>
     <string name="kept_no_rule">No rule matched.</string>
     <string name="matched_rule">Matching rule: %1$s</string>

@@ -2,10 +2,10 @@ package io.github.vitalyostanin.pushmenot.ui
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -39,9 +39,9 @@ internal fun UpdateSettings(state: ScreenState, callbacks: ScreenCallbacks) {
             text,
             if (status is UpdateInstallStatus.Downloading) Modifier else Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             color = when {
-                available -> accent
-                status == UpdateInstallStatus.Failed || result == UpdateResult.Failed -> Color(0xff79480c)
-                else -> secondaryInk
+                available -> MaterialTheme.colorScheme.primary
+                status == UpdateInstallStatus.Failed || result == UpdateResult.Failed -> MaterialTheme.colorScheme.tertiary
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
             fontWeight = if (available) FontWeight.SemiBold else FontWeight.Normal,
             fontSize = 14.sp,

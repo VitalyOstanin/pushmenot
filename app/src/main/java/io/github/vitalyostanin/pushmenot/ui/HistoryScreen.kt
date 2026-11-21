@@ -18,6 +18,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,7 +30,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -397,7 +397,18 @@ private fun HistoryRecord(
         }
         return
     }
-    Panel(Modifier.testTag("history_entry_${entry.id}")) {
+    val colors = MaterialTheme.colorScheme
+    val rejected = entry.verdict == Action.HIDE.name
+    val allowed = entry.verdict == Action.KEEP.name && (
+        entry.decisionReason == DecisionReason.RULE_MATCH.name ||
+            (entry.decisionReason == null && entry.ruleId != null)
+        )
+    val keptColors = if (allowed) keptJournalColors() else null
+
+    Panel(
+        modifier = Modifier.testTag("history_entry_${entry.id}"),
+        containerColor = if (rejected) colors.errorContainer else keptColors?.background ?: colors.surface,
+    ) {
         val packageName = entry.packageName
         JournalAppHeader(
             apps = journalApps,
@@ -412,7 +423,7 @@ private fun HistoryRecord(
             Text(it.joinToString("\n"))
         }
         entry.sender?.let { Help(stringResource(R.string.sender_detail, it)) }
-        val hiddenByRule = entry.verdict == Action.HIDE.name && entry.dismissalRequestedAtMillis != null &&
+        val hiddenByRule = rejected && entry.dismissalRequestedAtMillis != null &&
             entry.removedAtMillis != null && entry.removalReason == NotificationListenerService.REASON_LISTENER_CANCEL
         val status = when (entry.verdict) {
             null -> R.string.not_filtered
@@ -421,21 +432,21 @@ private fun HistoryRecord(
                 entry.decisionReason == DecisionReason.UNMATCHED_MODE.name -> R.string.history_hidden_unmatched
                 else -> R.string.hidden_by_rule
             }
-            else -> R.string.kept
+            else -> if (allowed) R.string.kept_by_rule else R.string.kept
         }
         Text(
             stringResource(
                 if (entry.countAsNew) R.string.history_received_decision else R.string.history_recorded_decision,
                 stringResource(status),
             ),
-            color = secondaryInk,
+            color = if (rejected) colors.onErrorContainer else keptColors?.label ?: colors.onSurfaceVariant,
             fontSize = 14.sp,
         )
         assessment?.let {
             val color = when (it.label) {
-                R.string.history_current_hide -> Color(0xff79480c)
-                R.string.history_current_keep, R.string.history_current_no_match -> accent
-                else -> secondaryInk
+                R.string.history_current_hide, R.string.history_current_hide_unmatched -> colors.error
+                R.string.history_current_keep -> colors.primary
+                else -> colors.onSurfaceVariant
             }
             Text(stringResource(it.label), color = color, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             if (it.ruleId != null && it.ruleId != recordedRule?.id) {

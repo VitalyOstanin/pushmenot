@@ -47,6 +47,7 @@
     <string name="removal_requested">Запрошено удаление</string>
     <string name="hide_decision">По правилу нужно скрыть</string>
     <string name="kept">Оставлено</string>
+    <string name="kept_by_rule">Оставлено по правилу</string>
     <string name="not_filtered">Без фильтрации</string>
     <string name="kept_no_rule">Ни одно правило не подошло.</string>
     <string name="matched_rule">Сработавшее правило: %1$s</string>

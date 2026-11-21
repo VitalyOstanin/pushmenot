@@ -127,7 +127,7 @@ internal fun SettingsScreen(
                 }
             }
             item {
-                Panel {
+                Panel(warning = state.backgroundStatus?.ignoresBatteryOptimizations == false) {
                     Title(stringResource(R.string.battery_optimization))
                     Help(stringResource(when (state.backgroundStatus?.ignoresBatteryOptimizations) {
                         true -> R.string.battery_exempt

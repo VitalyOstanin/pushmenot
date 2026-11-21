@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
@@ -54,6 +54,7 @@ internal fun JournalAppHeader(
     time: String? = null,
     openSource: (() -> Unit)? = null,
 ) {
+    val colors = MaterialTheme.colorScheme
     key(apps, packageName) {
         val app by produceState(packageName?.let(apps::cached)) {
             if (value == null && packageName != null) value = apps.load(packageName)
@@ -82,12 +83,12 @@ internal fun JournalAppHeader(
                 } else {
                     Canvas(
                         Modifier.size(appIconSize)
-                            .background(Color(0xffe0eee7), RoundedCornerShape(8.dp))
+                            .background(colors.secondaryContainer, RoundedCornerShape(8.dp))
                             .testTag("journal_app_placeholder"),
                     ) {
                         val inset = size.width * .30f
                         drawRoundRect(
-                            color = secondaryInk,
+                            color = colors.onSecondaryContainer,
                             topLeft = Offset(inset, inset),
                             size = Size(size.width - 2 * inset, size.height - 2 * inset),
                             cornerRadius = CornerRadius(2.dp.toPx()),
@@ -102,7 +103,7 @@ internal fun JournalAppHeader(
                     lineHeight = 22.sp,
                 )
             }
-            if (time != null) Text(time, color = secondaryInk, fontSize = 13.sp)
+            if (time != null) Text(time, color = colors.onSurfaceVariant, fontSize = 13.sp)
         }
         if (identity != null && identity.label == null && knownLabel == null) {
             Help(stringResource(R.string.journal_app_identity_unavailable))

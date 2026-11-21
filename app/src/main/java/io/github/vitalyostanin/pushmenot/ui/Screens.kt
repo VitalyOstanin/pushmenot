@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Checkbox
@@ -32,7 +33,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -132,27 +132,7 @@ private enum class Section(val title: Int, val tag: String) {
     SETTINGS(R.string.settings, "settings_tab"),
 }
 
-private val ink = Color(0xff192824)
-internal val secondaryInk = Color(0xff435b51)
-internal val accent = Color(0xff225d45)
-private val screen = Color(0xfffafcfb)
-private val outline = Color(0xff527766)
-private val border = Color(0xffd2ded7)
-private val header = Color(0xffe0eee7)
-private val okay = Color(0xffe7f3ec)
-private val warningSurface = Color(0xfffff3df)
 private val focus = Color(0xfff0b429)
-private val palette = lightColorScheme(
-    primary = accent,
-    onPrimary = Color.White,
-    background = Color(0xffe9efec),
-    onBackground = ink,
-    surface = screen,
-    onSurface = ink,
-    onSurfaceVariant = secondaryInk,
-    outline = outline,
-    secondaryContainer = okay,
-)
 private val cardShape = RoundedCornerShape(14.dp)
 internal val buttonShape = RoundedCornerShape(12.dp)
 internal val screenPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
@@ -289,8 +269,11 @@ fun PushMeNotScreen(state: ScreenState, callbacks: ScreenCallbacks) {
         if (import != null || archive != null) callbacks.cancelImport() else back()
     }
 
-    MaterialTheme(colorScheme = palette) {
-        Surface(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
+    GraphiteTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
+            color = MaterialTheme.colorScheme.background,
+        ) {
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     val screenKey = if (route.destination == Destination.HISTORY) {
@@ -496,7 +479,8 @@ private fun RenderRuleEditor(
 
 @Composable
 private fun Navigation(active: Section, select: (Section) -> Unit) {
-    Surface(color = screen, border = BorderStroke(1.dp, border)) {
+    val colors = MaterialTheme.colorScheme
+    Surface(color = colors.background, border = BorderStroke(1.dp, colors.outlineVariant)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
             for (section in Section.entries) {
                 TextButton(
@@ -504,6 +488,10 @@ private fun Navigation(active: Section, select: (Section) -> Unit) {
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                         .testTag(section.tag).semantics { selected = section == active },
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                    colors = if (section == active) ButtonDefaults.textButtonColors(
+                        containerColor = colors.secondaryContainer,
+                        contentColor = colors.onSecondaryContainer,
+                    ) else ButtonDefaults.textButtonColors(contentColor = colors.onSurface),
                 ) {
                     Text(
                         stringResource(section.title),
@@ -522,7 +510,7 @@ internal fun ScreenHeader(
     onBack: (() -> Unit)? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
-    Surface(color = header) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Column {
             if (onBack != null) TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
             Row(
@@ -913,12 +901,19 @@ internal fun RuleDifference(preview: ImportPreview, labels: Map<String, String>)
 }
 
 @Composable
-internal fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun Panel(
+    modifier: Modifier = Modifier,
+    warning: Boolean = false,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
     Surface(
         modifier.fillMaxWidth(),
         shape = cardShape,
-        color = Color.White,
-        border = BorderStroke(1.dp, border),
+        color = if (warning) colors.tertiaryContainer else containerColor,
+        contentColor = if (warning) colors.onTertiaryContainer else colors.onSurface,
+        border = BorderStroke(1.dp, colors.outlineVariant),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
     }
@@ -926,11 +921,12 @@ internal fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnSco
 
 @Composable
 internal fun Notice(title: Int, warning: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    val colors = MaterialTheme.colorScheme
     Surface(
         Modifier.fillMaxWidth(),
         shape = cardShape,
-        color = if (warning) warningSurface else okay,
-        border = BorderStroke(1.dp, border),
+        color = if (warning) colors.tertiaryContainer else colors.secondaryContainer,
+        border = BorderStroke(1.dp, colors.outlineVariant),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Title(stringResource(title))
@@ -966,7 +962,7 @@ internal fun ActionButton(
             modifier = modifier.onFocusChanged { focused = it.isFocused },
             enabled = enabled,
             shape = buttonShape,
-            border = BorderStroke(if (focused) 2.dp else 1.dp, if (focused) focus else outline),
+            border = BorderStroke(if (focused) 2.dp else 1.dp, if (focused) focus else MaterialTheme.colorScheme.outline),
             content = { text() },
         )
     }
@@ -990,5 +986,5 @@ internal fun Title(label: String) {
 
 @Composable
 internal fun Help(label: String) {
-    Text(label, color = secondaryInk, fontSize = 14.sp, lineHeight = 20.sp)
+    Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 20.sp)
 }
