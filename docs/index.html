@@ -35,11 +35,11 @@
       <div class="comparison">
         <div class="shade">
           <h2>Before filtering</h2>
-          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">H</span><div><span class="source">Heather Shop</span><strong>Order ready for pickup</strong></div></li><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">H</span><div><span class="source">Heather Shop</span><strong>30% discount on décor</strong></div></li><li class="notice "><span class="app-icon rec-icon" aria-hidden="true">R</span><div><span class="source">Ribbon</span><strong>Today’s picks</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Notification history</strong></div></li></ul>
+          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">O</span><div><span class="source">Oxygen Shop</span><strong>Order ready for pickup</strong></div></li><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">O</span><div><span class="source">Oxygen Shop</span><strong>30% discount on décor</strong></div></li><li class="notice "><span class="app-icon rec-icon" aria-hidden="true">R</span><div><span class="source">Ribbon</span><strong>Today’s picks</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Notification history</strong></div></li></ul>
         </div>
         <div class="shade">
           <h2>After filtering</h2>
-          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">H</span><div><span class="source">Heather Shop</span><strong>Order ready for pickup</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Notification history</strong></div></li></ul>
+          <ul><li class="notice "><span class="app-icon shop-icon" aria-hidden="true">O</span><div><span class="source">Oxygen Shop</span><strong>Order ready for pickup</strong></div></li><li class="notice shortcut"><span class="app-icon shortcut-icon" aria-hidden="true"><span class="sun" aria-hidden="true"></span></span><div><span class="source">Push Me Not</span><strong>Notification history</strong></div></li></ul>
         </div>
       </div>
       <figcaption>Fictional apps. The order update and the promotion came from the same shop channel.</figcaption>
@@ -58,13 +58,13 @@
           <p class="app-heading">History</p>
           <p class="app-search">Search notifications</p>
           <article class="entry">
-          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">H</span><strong>Heather Shop</strong></div>
+          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">O</span><strong>Oxygen Shop</strong></div>
           <p class="entry-title">Order ready for pickup</p>
           <p class="entry-body">Pick it up by Sunday.</p>
           <span class="status ">Kept</span>
         </article>
         <article class="entry">
-          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">H</span><strong>Heather Shop</strong></div>
+          <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">O</span><strong>Oxygen Shop</strong></div>
           <p class="entry-title">30% discount on décor</p>
 
           <span class="status status-hidden">Hidden by a rule</span>
@@ -73,7 +73,7 @@
         <div class="detail" role="group" aria-label="Order notification details">
           <p class="app-heading">Notification</p>
           <div class="entry">
-            <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">H</span><strong>Heather Shop</strong></div>
+            <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">O</span><strong>Oxygen Shop</strong></div>
             <p class="entry-title">Order ready for pickup</p>
             <p class="entry-body">Pick it up by Sunday.</p>
             <span class="status">Kept</span>
@@ -88,14 +88,14 @@
   <section class="feature rule" aria-labelledby="rule-heading">
     <div class="feature-copy">
       <h2 id="rule-heading">Create a rule from a notification</h2>
-      <p>Open a notification in Push Me Not, choose Create rule and edit the condition if needed. In this example, the rule hides promotions from Heather Shop and keeps the order update.</p>
+      <p>Open a notification in Push Me Not, choose Create rule and edit the condition if needed. In this example, the rule hides promotions from Oxygen Shop and keeps the order update.</p>
       <p class="caveat">Android posts the notification first, so a banner or sound can appear before the rule hides it.</p>
     </div>
     <figure class="rule-figure">
       <div class="rule-example">
         <p class="app-heading">New rule</p>
         <dl>
-          <div><dt>App</dt><dd>Heather Shop</dd></div>
+          <div><dt>App</dt><dd>Oxygen Shop</dd></div>
           <div><dt>Condition</dt><dd>Title contains “discount”</dd></div>
           <div><dt>Action</dt><dd><span class="status status-hidden">Hide</span></dd></div>
         </dl>
@@ -121,7 +121,7 @@
       <li><strong>Find all received notifications in one place</strong><p>Search history and narrow it to one app. It includes hidden notifications and notifications from apps you do not filter.</p></li>
       <li><strong>Reopen dismissed notifications</strong><p>Go back to an order or message from history while the original notification action is available. If it has expired, open the sending app when available.</p></li>
       <li><strong>Create a rule from a notification</strong><p>Use a notification still in the shade or an entry in history. A saved rule can also hide matching notifications already in the shade.</p></li>
-      <li><strong>Hide everything except what you allow</strong><p>Set what happens to unmatched notifications for an app or channel, then add Keep rules for the alerts you want.</p></li>
+      <li><strong>Show only allowed notifications or hide selected ones</strong><p>Choose a default for each app or channel. Hide everything unless a Keep rule matches, or show everything unless a Hide rule matches.</p></li>
       <li><strong>Build rules and limit repeats</strong><p>Match the app, channel, title, text or sender. Use rules for one app or across apps, and limit how many matching alerts to keep within a time window.</p></li>
       <li><strong>Preview the effect of a rule</strong><p>Test a draft on saved notifications. In history, compare the original decision with what the current rules would do.</p></li>
       <li><strong>Open history from the shade</strong><p>Enable the Push Me Not notification to jump straight to history from the shade.</p></li>
