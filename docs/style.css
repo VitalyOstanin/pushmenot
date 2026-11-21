@@ -96,6 +96,15 @@ figcaption { margin-top: 10px; color: var(--muted); font-size: .875rem; }
 .comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .shade { min-width: 0; padding: 11px; border: 1px solid var(--line); border-radius: 18px; background: var(--well); }
 .shade h2 { margin: 0 0 9px; font-size: .9375rem; letter-spacing: 0; }
+.shade-result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; text-wrap: wrap; }
+.hidden-count {
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: light-dark(#21573b, #b6e4c6);
+  background: light-dark(#e8f2ec, #22342e);
+  font-size: .8125rem;
+  font-weight: 700;
+}
 .shade ul { display: grid; gap: 6px; padding: 0; list-style: none; }
 .notice {
   display: grid;
