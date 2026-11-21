@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Push Me Not — Notification filter and history</title>
-  <meta name="description" content="Filter Android notifications with local rules and find received notifications in a searchable history.">
+  <meta name="description" content="An Android notification filter with custom rules and a searchable history of received notifications.">
   <link rel="alternate" hreflang="ru" href="ru/">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -22,14 +22,14 @@
 <main class="wrap">
   <section class="hero" aria-labelledby="main-heading">
     <div class="hero-copy">
-      <h1 id="main-heading">Keep the order update. Hide the promotion.</h1>
+      <h1 id="main-heading">Order updates stay. Rules hide promotions.</h1>
       <p class="subtitle">Notification filter and history for Android</p>
-      <p class="lede">Set rules to hide unwanted notifications. History keeps every notification the app receives.</p>
+      <p class="lede">Push Me Not can distinguish notifications from the same channel. Every notification the app receives stays in history.</p>
       <div class="download">
-        <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Download for Android</a>
+        <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Android APK</a>
         <span>Android 12 or later</span>
       </div>
-      <p class="download-help">Choose the .apk file on GitHub. <a href="#install">Installation steps</a></p>
+      <p class="download-help">The .apk file is available on GitHub. <a href="#install">Installation steps</a></p>
     </div>
     <figure class="demo">
       <div class="comparison">
@@ -48,7 +48,7 @@
 
   <section class="feature history" aria-labelledby="history-heading">
     <div class="feature-copy">
-      <h2 id="history-heading">Find a notification after it leaves the shade</h2>
+      <h2 id="history-heading">Notifications stay in history after dismissal</h2>
       <p>History keeps the order update and the promotion you hid. You can open the order from history while the original notification action is still available.</p>
       <p>History and rules are stored on your device.</p>
     </div>
@@ -60,7 +60,7 @@
           <article class="entry">
           <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">O</span><strong>Oxygen Shop</strong></div>
           <p class="entry-title">Order ready for pickup</p>
-          <p class="entry-body">Pick it up by Sunday.</p>
+          <p class="entry-body">Pickup available until Sunday.</p>
           <span class="status ">Kept</span>
         </article>
         <article class="entry">
@@ -75,7 +75,7 @@
           <div class="entry">
             <div class="entry-app"><span class="app-icon shop-icon" aria-hidden="true">O</span><strong>Oxygen Shop</strong></div>
             <p class="entry-title">Order ready for pickup</p>
-            <p class="entry-body">Pick it up by Sunday.</p>
+            <p class="entry-body">Pickup available until Sunday.</p>
             <span class="status">Kept</span>
             <span class="sample-action">Open notification</span>
           </div>
@@ -87,8 +87,8 @@
 
   <section class="feature rule" aria-labelledby="rule-heading">
     <div class="feature-copy">
-      <h2 id="rule-heading">Create a rule from a notification</h2>
-      <p>Open a notification in Push Me Not, choose Create rule and edit the condition if needed. In this example, the rule hides promotions from Oxygen Shop and keeps the order update.</p>
+      <h2 id="rule-heading">A rule from a notification</h2>
+      <p>A notification in the shade or history can be the basis for a rule. Its condition can be edited before saving. The example rule hides a promotion from Oxygen Shop and leaves the order update in the shade.</p>
       <p class="caveat">Android posts the notification first, so a banner or sound can appear before the rule hides it.</p>
     </div>
     <figure class="rule-figure">
@@ -105,33 +105,33 @@
   </section>
 
   <section class="install" id="install" aria-labelledby="install-heading">
-    <h2 id="install-heading">Install and get started</h2>
+    <h2 id="install-heading">Installation and the first rule</h2>
     <ol>
-      <li><strong>Install the APK.</strong> Download it from GitHub and open it on your phone. Android may ask you to allow installs from this source.</li>
-      <li><strong>Grant notification access.</strong> Open Push Me Not. The permission lets it read notifications for filtering and history.</li>
-      <li><strong>Create your first rule.</strong> Choose an unwanted notification in the app and tap Create rule. If needed, turn on filtering for that app when saving.</li>
+      <li><strong>APK installation.</strong> Installation starts with the .apk file from GitHub. The file opens on the phone. Android may request permission to install from that source.</li>
+      <li><strong>Notification access.</strong> Push Me Not needs Android notification access. This permission lets the app read notifications for filtering and history.</li>
+      <li><strong>First rule.</strong> An unwanted notification can be the basis for the first rule. Filtering for its app can be enabled when the rule is saved.</li>
     </ol>
-    <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Download for Android</a>
+    <a class="button" href="https://github.com/VitalyOstanin/pushmenot/releases/latest">Android APK</a>
   </section>
 
   <section class="features" aria-labelledby="features-heading">
     <h2 id="features-heading">Features</h2>
     <ul class="feature-list">
-      <li><strong>Keep important alerts and hide promotions</strong><p>Keep order or payment updates while hiding ads from the same app, even in the same notification channel.</p></li>
-      <li><strong>Find all received notifications in one place</strong><p>Search history and narrow it to one app. It includes hidden notifications and notifications from apps you do not filter.</p></li>
-      <li><strong>Reopen dismissed notifications</strong><p>Go back to an order or message from history while the original notification action is available. If it has expired, open the sending app when available.</p></li>
-      <li><strong>Create a rule from a notification</strong><p>Use a notification still in the shade or an entry in history. A saved rule can also hide matching notifications already in the shade.</p></li>
-      <li><strong>Show only allowed notifications or hide selected ones</strong><p>Choose a default for each app or channel. Hide everything unless a Keep rule matches, or show everything unless a Hide rule matches.</p></li>
-      <li><strong>Build rules and limit repeats</strong><p>Match the app, channel, title, text or sender. Use rules for one app or across apps, and limit how many matching alerts to keep within a time window.</p></li>
-      <li><strong>Preview the effect of a rule</strong><p>Test a draft on saved notifications. In history, compare the original decision with what the current rules would do.</p></li>
-      <li><strong>Open history from the shade</strong><p>Enable the Push Me Not notification to jump straight to history from the shade.</p></li>
-      <li><strong>See how many notifications were hidden</strong><p>View the number hidden out of all received notifications today and this week.</p></li>
-      <li><strong>Control what history stores</strong><p>Set its size and choose whether to save notification content, including text and available image previews. History and rules are stored on your device.</p></li>
-      <li><strong>Export history for analysis</strong><p>Choose an app and date range, then export to JSON. You can choose which content to include.</p></li>
-      <li><strong>Move rules to another phone</strong><p>Save or share a rules file with the apps selected for filtering. Add new rules from a file or replace your current rules.</p></li>
-      <li><strong>Restore earlier versions of your rules</strong><p>Every saved change creates a local snapshot. Compare and restore versions, or save a backup that includes all versions.</p></li>
-      <li><strong>Manage Android permissions and background settings</strong><p>Check notification access and battery restrictions, then open the relevant Android settings from the app. The interface is available in English and Russian.</p></li>
-      <li><strong>Check for and install updates</strong><p>Check GitHub for a new release, then install it from the app or download the APK manually.</p></li>
+      <li><strong>Important alerts and hidden promotions</strong><p>Order and payment updates can stay in the shade even when the same app sends ads through the same channel.</p></li>
+      <li><strong>All received notifications in one place</strong><p>Searchable history includes hidden notifications and notifications from unfiltered apps. It can also be narrowed to one app.</p></li>
+      <li><strong>Actions from dismissed notifications</strong><p>An order or message can be reopened from history while the original action is available. If it is no longer available, history offers to open the sending app when possible.</p></li>
+      <li><strong>Rules from notifications</strong><p>A card in the shade or a history entry can be the basis for a rule. Saving the rule can hide matching cards already in the shade.</p></li>
+      <li><strong>Two filtering modes</strong><p>Each app or channel can show only notifications allowed by a rule, or hide only those blocked by a rule.</p></li>
+      <li><strong>Conditions and repeat limits</strong><p>Rules can match the app, channel, title, text, sender or frequency. A rule can apply to one app or to all apps selected for filtering and limit how many matches stay visible in a time window.</p></li>
+      <li><strong>Rule preview on saved notifications</strong><p>The preview shows how a draft rule would apply to saved notifications. History shows the original decision and the result under current rules.</p></li>
+      <li><strong>History from the shade</strong><p>The Push Me Not notification opens history directly. Its availability depends on Android notification permissions.</p></li>
+      <li><strong>Hidden notification counts</strong><p>The app shows how many of the notifications it received were hidden today and this week.</p></li>
+      <li><strong>History storage settings</strong><p>History size and content retention are configurable, including notification text and available image previews. History and rules are stored on the device.</p></li>
+      <li><strong>History export for analysis</strong><p>History can be exported to JSON for a chosen app and date range, with control over which data is included.</p></li>
+      <li><strong>Rule transfer between phones</strong><p>A rules file can be saved or shared with the list of apps selected for filtering. Import can add to or replace current rules.</p></li>
+      <li><strong>Earlier rule versions</strong><p>Every saved change creates a local version. Versions can be compared, restored or backed up together.</p></li>
+      <li><strong>Permissions and background settings</strong><p>Settings show notification access and battery restrictions. The relevant Android settings open from the app. The interface is available in English and Russian.</p></li>
+      <li><strong>App updates</strong><p>The app can check GitHub for new versions. The APK can be installed from the app or downloaded manually.</p></li>
     </ul>
   </section>
 </main>
