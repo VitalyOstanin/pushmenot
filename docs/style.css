@@ -11,7 +11,6 @@
   --highlight: light-dark(#dfe4fa, #363e60);
   --warning-bg: light-dark(#fff0d7, #50391f);
   --warning-ink: light-dark(#5c3b16, #ffdfaa);
-  --sun: #f5ce53;
   font: 16px/1.5 system-ui, sans-serif;
 }
 
@@ -40,33 +39,27 @@ figcaption { margin-top: 10px; color: var(--muted); font-size: .875rem; }
   text-decoration: none;
 }
 .brand-icon, .app-icon {
-  display: grid;
-  place-items: center;
   flex: none;
   width: 28px;
   height: 28px;
   border-radius: 8px;
+}
+.app-icon {
+  display: grid;
+  place-items: center;
   font-size: .875rem;
   font-weight: 800;
 }
-.brand-icon { background: #225d45; }
 .shortcut-icon {
   border-radius: 50%;
   background: light-dark(#e1e5eb, #38434e);
   color: light-dark(#374350, #f0f3f7);
-}
-.sun {
-  width: 19px;
-  height: 19px;
-  background: var(--sun);
-  clip-path: polygon(50% 0,61% 24%,80% 10%,81% 35%,100% 37%,87% 50%,100% 65%,80% 66%,81% 89%,61% 76%,50% 100%,39% 76%,19% 89%,20% 66%,0 65%,13% 50%,0 37%,19% 35%,20% 10%,39% 24%);
 }
 
 .notice .shortcut-icon .sun {
   width: 100%;
   height: 100%;
   background: currentColor;
-  clip-path: none;
   mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Cpath%20transform%3D%22translate%2814%2014%29%20scale%280.8%200.8%29%22%20fill%3D%22%23fff%22%20fill-rule%3D%22evenodd%22%20d%3D%22M50%2C10%20L57%2C24%2072%2C18%2073%2C34%2089%2C38%2079%2C50%2089%2C62%2073%2C66%2072%2C82%2057%2C76%2050%2C90%2043%2C76%2028%2C82%2027%2C66%2011%2C62%2021%2C50%2011%2C38%2027%2C34%2028%2C18%2043%2C24%20Z%20M45%2C46%20A3%2C4%200%2C1%201%2C39%2C46%20A3%2C4%200%2C1%201%2C45%2C46%20Z%20M61%2C46%20A3%2C4%200%2C1%201%2C55%2C46%20A3%2C4%200%2C1%201%2C61%2C46%20Z%20M40%2C58.1%20Q50%2C67.9%2060%2C58.1%20A1.5%2C1.5%200%2C0%200%2C58%2C55.9%20Q50%2C63.1%2042%2C55.9%20A1.5%2C1.5%200%2C0%200%2C40%2C58.1%20Z%22/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
